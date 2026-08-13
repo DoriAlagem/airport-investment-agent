@@ -872,8 +872,24 @@ const MIN_SPEECH_FRAMES = 6;    // ignore a click or a cough
 // Still deliberately higher than plain speech: echo cancellation suppresses our
 // own voice without erasing it, and cutting the assistant off for no reason is
 // the more annoying failure of the two.
+// Raised after a deployed session cut its own answers off mid-sentence. At 2.0
+// the bar sat at 0.020 while the speaker's voice peaked at 0.44 - a 20x margin,
+// so room noise and the laptop speaker leaking past echo cancellation were both
+// enough to interrupt. Interrupting must take a real voice, sustained: quietly
+// losing half an answer is far worse than having to speak up (ADR-0020).
 const BARGE_MULTIPLE = 2.0;
-const BARGE_FRAMES = 3;
+const BARGE_FRAMES = 6;
+
+// The reply's opening frames are the assistant alone, so they measure how much
+// of her own voice reaches the microphone. Interrupting must clearly beat that.
+const BARGE_CALIBRATION_FRAMES = 10;   // ~0.85s at 4096 samples / 48kHz
+const BARGE_OVER_SELF = 1.8;
+// If the user talks THROUGH the calibration window, their voice is measured as
+// leakage and the bar would climb out of reach for the rest of that reply.
+// Capped so interrupting always stays possible: a normal voice peaks far above
+// this, and the assistant through a laptop speaker sits below it.
+const BARGE_SELF_CEILING = 0.06;
+let selfLeak = 0, spokenFrames = 0;
 
 // One definition, so the detector and the diagnostics measuring it cannot drift.
 function speechBarNow() {
@@ -949,7 +965,23 @@ async function ensureMicrophone() {
     if (speaking) {
       // While the assistant talks, only a clear interruption counts; quiet
       // frames reset the counter so background noise cannot accumulate.
-      const bargeBar = speechBarNow() * BARGE_MULTIPLE;
+      // The assistant's own voice comes out of the speakers, and echo
+      // cancellation does not cover it: getUserMedia cancels the WebRTC render
+      // stream, not system speech synthesis. So the microphone hears her
+      // clearly and, with a fixed bar, interrupts her after one word.
+      //
+      // The first stretch of every reply is guaranteed to be her alone, so it
+      // is used to measure how loudly she leaks in. Interrupting then has to
+      // beat that measurement, which is self-calibrating to the machine, the
+      // volume, and whether headphones are plugged in.
+      spokenFrames++;
+      if (spokenFrames <= BARGE_CALIBRATION_FRAMES) {
+        selfLeak = Math.min(BARGE_SELF_CEILING, Math.max(selfLeak, rms));
+        bargeFrames = 0;
+        return;                       // deaf while measuring her own voice
+      }
+      const bargeBar = Math.max(speechBarNow() * BARGE_MULTIPLE,
+                                selfLeak * BARGE_OVER_SELF);
       bargeFrames = rms > bargeBar ? bargeFrames + 1 : 0;
       if (bargeFrames >= BARGE_FRAMES) {
         stopSpeaking();
@@ -1324,6 +1356,7 @@ function say(text) {
   if (!spoken) { resumeListening(); return; }
   setState('speaking');
   speaking = true;
+  selfLeak = 0; spokenFrames = 0;   // measure this reply's leakage afresh
   (SPEAK_WITH === 'openai' ? speakRemote : speakLocally)(spoken);
 }
 
@@ -1643,7 +1676,7 @@ document.getElementById('orb-end').onclick = () => { endConversation(); };
 // Announce which build is actually running, the moment the script evaluates.
 // Without this there is no way to tell a stale cached page from a broken one -
 // both look identical from the server: a page load and then nothing.
-const BUILD = 'voice-25-browser';
+const BUILD = 'voice-28-browser';
 report('loaded', { build: BUILD, ua: navigator.userAgent.slice(0, 60) });
 window.addEventListener('error', e => {
   report('js-error', { message: String(e.message), line: e.lineno });
