@@ -120,7 +120,7 @@ not ([ADR-0028](docs/adr/0028-speech-output-returns-to-the-browser-voice.md)).
 
 ```bash
 pip install -r requirements-dev.txt
-python3 -m pytest tests/ -q                    # 83 tests, no API keys, no network
+python3 -m pytest tests/ -q                    # 88 tests, no API keys, no network
 ```
 
 There is a second harness that checks the *answers* rather than the code:

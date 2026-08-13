@@ -198,11 +198,11 @@ number from a partial dataset is the failure this design is built against.
 - **63 of the 396 scored airports are missing a component**, and 52 of those are
   scored on **one** — fullness alone. Renormalising is defensible arithmetic
   (ADR-0010) and a poor summary, so every such score is reported as low
-  confidence and names the component it rests on. Five of them still sit in the
-  overall top twenty, above airports measured on all three; within a tier, which
-  is how the tools present rankings, they stay among their own kind. PSM is the
-  sharp case in a tier anyone will ask about: top of New England with 40% of its
-  score absent, and it says so.
+  confidence and names the component it rests on. Several of them still sit in
+  the overall top twenty, above airports measured on all three; within a tier,
+  which is how the tools present rankings, they stay among their own kind. PSM
+  is the sharp case in a tier anyone will ask about: top of New England with
+  40% of its score absent, and it says so.
 - **Two data windows** — 12 months for delay, 36 for traffic — which answers
   must distinguish rather than blend.
 - **Place names resolve in English only**, including inside a Hebrew
