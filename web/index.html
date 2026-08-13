@@ -1,0 +1,1705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI.I Airport Investment Intelligence</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9C%88%3C/text%3E%3C/svg%3E">
+<style>
+/* Light is the base; dark is a selected set of steps, declared under both the
+   OS media query and the explicit toggle so the toggle wins either way. */
+:root {
+  color-scheme: light;
+  /* Wonderful's palette: white ground, near-black ink, colour reserved for
+     content rather than chrome. */
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #fafafa;
+  --line: #e9e9e9;
+  --line-strong: #d4d4d4;
+  --ink: #0a0a0a;
+  --ink-2: rgba(10,10,10,.66);
+  --ink-3: rgba(10,10,10,.44);
+  --accent: #2a78d6;
+  --accent-2: #eb6834;
+  --accent-soft: #e9f0fb;
+  --track: #e6e8ec;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --serious: #ec835a;
+  --critical: #d03b3b;
+  --shadow: none;
+  --radius-card: 6px;
+  --radius-pill: 999px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0a0a0a;
+    --surface: #0a0a0a;
+    --surface-2: #141414;
+    --line: #232323;
+    --line-strong: #333333;
+    --ink: #fafafa;
+    --ink-2: rgba(250,250,250,.66);
+    --ink-3: rgba(250,250,250,.44);
+    --accent: #3987e5;
+    --accent-2: #d95926;
+    --accent-soft: #16202e;
+    --track: #232323;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0a0a0a;
+  --surface: #0a0a0a;
+  --surface-2: #141414;
+  --line: #232323;
+  --line-strong: #333333;
+  --ink: #fafafa;
+  --ink-2: rgba(250,250,250,.66);
+  --ink-3: rgba(250,250,250,.44);
+  --accent: #3987e5;
+  --accent-2: #d95926;
+  --accent-soft: #16202e;
+  --track: #232323;
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.6 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- live conversation stage ---------- */
+.stage[hidden] { display: none; }   /* display:flex would otherwise beat [hidden] */
+.stage {
+  position: fixed; inset: 0; z-index: 60; display: flex;
+  flex-direction: column; align-items: center; justify-content: center; gap: 26px;
+  background: var(--bg);
+  animation: stage-in .35s ease;
+}
+@keyframes stage-in { from { opacity: 0; } to { opacity: 1; } }
+
+.orb-wrap { --amp: 0; }
+.orb {
+  position: relative; width: 260px; height: 260px; border-radius: 50%;
+  overflow: hidden; isolation: isolate;
+  background: radial-gradient(circle at 50% 45%, #eef2ff 0%, #dbe4ff 55%, #c9d6f7 100%);
+  box-shadow: 0 26px 70px -18px rgba(60,90,180,.45), 0 0 0 1px rgba(255,255,255,.5) inset;
+  /* Scale tracks live microphone amplitude, so the orb answers the voice
+     rather than animating on a timer. */
+  transform: scale(calc(1 + var(--amp) * .16));
+  transition: transform .09s ease-out;
+}
+.lay {
+  position: absolute; border-radius: 50%; filter: blur(26px); opacity: .92;
+  mix-blend-mode: normal;
+}
+.lay.a {
+  inset: -22%; background: radial-gradient(circle at 34% 32%, #6f96ff 0%, rgba(111,150,255,0) 62%);
+  animation: drift-a 9s ease-in-out infinite;
+}
+.lay.b {
+  inset: -26%; background: radial-gradient(circle at 68% 62%, #4f7ff0 0%, rgba(79,127,240,0) 60%);
+  animation: drift-b 11s ease-in-out infinite;
+}
+.lay.c {
+  inset: -20%; background: radial-gradient(circle at 30% 72%, #ffc9dc 0%, rgba(255,201,220,0) 58%);
+  animation: drift-c 13s ease-in-out infinite;
+}
+.gloss {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 38% 26%, rgba(255,255,255,.75) 0%, rgba(255,255,255,0) 46%);
+}
+@keyframes drift-a {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33% { transform: translate(14%,10%) scale(1.14); }
+  66% { transform: translate(-10%,8%) scale(.94); }
+}
+@keyframes drift-b {
+  0%,100% { transform: translate(0,0) scale(1.05); }
+  40% { transform: translate(-16%,-12%) scale(.9); }
+  70% { transform: translate(8%,-6%) scale(1.16); }
+}
+@keyframes drift-c {
+  0%,100% { transform: translate(0,0) scale(.98); }
+  45% { transform: translate(12%,-14%) scale(1.2); }
+  75% { transform: translate(-12%,6%) scale(1); }
+}
+/* Each state gets its own motion, so the orb is readable without the label. */
+.stage[data-state="thinking"] .orb { animation: orb-think 2.4s ease-in-out infinite; }
+@keyframes orb-think { 0%,100% { transform: scale(.97); } 50% { transform: scale(1.03); } }
+.stage[data-state="speaking"] .lay { animation-duration: 4.5s, 5s, 6s; }
+.stage[data-state="thinking"] .lay { filter: blur(34px); opacity: .7; }
+
+.orb-hint { font-size: 12px; color: var(--ink-3); margin-top: -14px; }
+/* A reason for not answering, shown where the stage covers the footer hint. */
+.orb-hint.notice { font-size: 13px; color: var(--ink-2); font-weight: 500; }
+.orb { cursor: pointer; }
+.orb-state {
+  font-size: 17px; font-weight: 300; color: var(--ink); letter-spacing: -.015em;
+}
+.orb-end {
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--radius-pill); padding: 10px 24px; font: inherit; font-size: 13.5px;
+  cursor: pointer; font-weight: 300;
+}
+.orb-end:hover { color: var(--ink); border-color: var(--line-strong); }
+@media (max-width: 620px) { .orb { width: 200px; height: 200px; } }
+
+/* ---------- floating controls ---------- */
+.topbar {
+  position: fixed; top: 14px; right: 16px; z-index: 30; display: flex; gap: 6px;
+}
+.iconbtn {
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink-3);
+  border-radius: var(--radius-pill); width: 34px; height: 34px; font-size: 14px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: inherit; line-height: 1;
+}
+.iconbtn:hover { color: var(--ink); border-color: var(--line-strong); }
+
+/* ---------- wordmark ---------- */
+.wordmark {
+  display: inline-flex; align-items: baseline; gap: 1px;
+  font-size: 62px; font-weight: 300; letter-spacing: -.035em; line-height: 1;
+}
+.wordmark .dot { color: var(--accent); }
+.wordmark-sub {
+  font-size: 16px; font-weight: 300; color: var(--ink-2); letter-spacing: -.01em;
+  margin-top: 14px;
+}
+
+/* ---------- log ---------- */
+#log { flex: 1; overflow-y: auto; padding: 34px 18px 10px; }
+.wrap { max-width: 900px; margin: 0 auto; }
+.turn { margin-bottom: 26px; }
+.who {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--ink-3); margin-bottom: 7px; font-weight: 600;
+}
+.user .bubble {
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: var(--radius-card); padding: 11px 16px; display: inline-block;
+  max-width: 100%; color: var(--ink);
+}
+.bot .bubble {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-card); padding: 18px 22px;
+}
+.bubble h3 { font-size: 13.5px; margin: 18px 0 7px; letter-spacing: -.005em; }
+.bubble h3:first-child { margin-top: 0; }
+.bubble p { margin: 0 0 11px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble ul { margin: 0 0 11px; padding-left: 19px; }
+.bubble li { margin-bottom: 3px; }
+.bubble code {
+  font-family: var(--mono); font-size: 12.5px; background: var(--surface-2);
+  padding: 1px 5px; border-radius: 4px;
+}
+.table-scroll { overflow-x: auto; margin: 0 0 13px; }
+table { border-collapse: collapse; font-size: 13px; }
+th, td {
+  border-bottom: 1px solid var(--line); padding: 7px 12px 7px 0;
+  text-align: left; white-space: nowrap;
+}
+th { color: var(--ink-3); font-weight: 600; font-size: 11.5px;
+     text-transform: uppercase; letter-spacing: .05em; }
+td { font-variant-numeric: tabular-nums; }
+
+/* ---------- evidence cards ---------- */
+.evidence { margin-top: 15px; display: flex; flex-direction: column; gap: 11px; }
+.card {
+  border: 1px solid var(--line); border-radius: var(--radius-card);
+  background: var(--surface-2); padding: 16px 18px;
+}
+.card-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.card-code { font-weight: 700; font-size: 15px; letter-spacing: -.01em; }
+.card-name { color: var(--ink-2); font-size: 12.5px; }
+.card-head .grow { min-width: 0; }
+
+.hero { display: flex; align-items: flex-end; gap: 9px; margin: 9px 0 3px; }
+.hero-num {
+  font-size: 38px; font-weight: 300; line-height: 1;
+  letter-spacing: -.025em; font-variant-numeric: tabular-nums; color: var(--ink);
+}
+.hero-label { font-size: 11.5px; color: var(--ink-3); padding-bottom: 3px; }
+
+.badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+.badge {
+  font-size: 11px; border-radius: 6px; padding: 2.5px 8px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid; background: var(--surface);
+}
+/* Status colour never carries meaning alone - every badge ships an icon and a
+   word, so it survives colourblindness, greyscale print and forced colours. */
+.badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+.badge.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.badge.warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 55%, transparent); }
+.badge.serious { color: var(--serious); border-color: color-mix(in srgb, var(--serious) 55%, transparent); }
+.badge.critical { color: var(--critical); border-color: color-mix(in srgb, var(--critical) 45%, transparent); }
+.badge.neutral { color: var(--ink-2); border-color: var(--line-strong); }
+
+.bars { margin-top: 13px; display: flex; flex-direction: column; gap: 9px; }
+.bar-row { display: grid; grid-template-columns: 118px 1fr 96px; gap: 10px; align-items: center; }
+.bar-label { font-size: 11.5px; color: var(--ink-2); }
+.track {
+  position: relative; height: 9px; background: var(--track); border-radius: 999px;
+}
+.fill {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: var(--accent); border-radius: 0 4px 4px 0; min-width: 3px;
+}
+.fill.s2 { background: var(--accent-2); }
+.bar-val {
+  font-size: 11.5px; color: var(--ink); text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bar-val small { color: var(--ink-3); }
+
+.formula {
+  margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--line);
+  font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+}
+.formula b { color: var(--ink); }
+
+.caveat {
+  margin-top: 9px; font-size: 11.5px; line-height: 1.5;
+  border-left: 2px solid var(--warning); padding: 3px 0 3px 10px; color: var(--ink-2);
+}
+
+.tier-group { margin-bottom: 13px; }
+.tier-group:last-child { margin-bottom: 0; }
+.tier-title {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--ink-3); font-weight: 650; margin-bottom: 7px;
+}
+.rank-row {
+  display: grid; grid-template-columns: 20px 46px 1fr 52px; gap: 9px;
+  align-items: center; padding: 3px 0;
+}
+.rank-n { font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.rank-code { font-weight: 650; font-size: 12.5px; }
+.rank-score { font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.tiles { display: flex; gap: 9px; margin-top: 11px; flex-wrap: wrap; }
+.tile {
+  flex: 1; min-width: 128px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--radius-card); padding: 12px 14px;
+}
+.tile-num {
+  font-size: 24px; font-weight: 300; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.tile-label { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+.tile-sub { font-size: 10.5px; color: var(--ink-3); margin-top: 4px; }
+
+.note { font-size: 11.5px; color: var(--ink-2); margin-top: 10px; font-style: italic; }
+.excluded { font-size: 11.5px; color: var(--ink-3); margin-top: 9px; }
+
+/* Hover layer: bars and tiles explain themselves on hover rather than needing
+   a legend for every number. */
+[data-tip] { position: relative; }
+[data-tip]:hover::after {
+  content: attr(data-tip); position: absolute; bottom: calc(100% + 7px); left: 0;
+  background: var(--ink); color: var(--bg); font-size: 11px; line-height: 1.45;
+  padding: 6px 9px; border-radius: 6px; white-space: normal; width: max-content;
+  max-width: 260px; z-index: 30; box-shadow: var(--shadow); pointer-events: none;
+}
+
+details.trace { margin-top: 12px; }
+details.trace summary {
+  cursor: pointer; font-size: 11.5px; color: var(--ink-3); user-select: none;
+  list-style: none; display: inline-flex; align-items: center; gap: 6px;
+}
+details.trace summary::-webkit-details-marker { display: none; }
+details.trace summary::before { content: '▸'; font-size: 9px; }
+details.trace[open] summary::before { content: '▾'; }
+details.trace summary:hover { color: var(--accent); }
+.call { margin-top: 9px; font-family: var(--mono); font-size: 11.5px; }
+.call .sig { color: var(--accent); word-break: break-all; }
+.call pre {
+  margin: 5px 0 0; padding: 9px 11px; background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 7px; max-height: 240px;
+  overflow: auto; white-space: pre-wrap; word-break: break-word; color: var(--ink-2);
+}
+
+.err {
+  border: 1px solid color-mix(in srgb, var(--critical) 45%, transparent);
+  color: var(--critical); border-radius: 9px; padding: 11px 14px; font-size: 13px;
+}
+
+[dir="rtl"] { text-align: right; }
+[dir="rtl"] ul { padding-left: 0; padding-right: 19px; }
+/* Evidence cards stay LTR inside an RTL answer: they are airport codes and
+   numbers, which read left-to-right in every language. */
+[dir="rtl"] .evidence, [dir="rtl"] .table-scroll { direction: ltr; text-align: left; }
+
+/* ---------- empty state ---------- */
+.empty {
+  min-height: calc(100vh - 250px); display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; padding: 20px 0;
+}
+.empty h2 {
+  font-size: 34px; font-weight: 300; margin: 46px 0 14px; letter-spacing: -.028em;
+  line-height: 1.15; max-width: 660px;
+}
+.empty p {
+  color: var(--ink-2); margin: 0 0 34px; font-size: 15px; max-width: 560px;
+  line-height: 1.65; font-weight: 300;
+}
+.samples {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 10px; width: 100%; max-width: 660px; text-align: left;
+}
+.sample {
+  text-align: left; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-card); padding: 15px 17px; cursor: pointer;
+  font: inherit; font-size: 13.5px; color: var(--ink); line-height: 1.5;
+  font-weight: 300; transition: border-color .15s ease;
+}
+.sample:hover { border-color: var(--ink); }
+.sample span { display: block; font-size: 10.5px; color: var(--ink-3);
+               text-transform: uppercase; letter-spacing: .07em; margin-bottom: 5px;
+               font-weight: 650; }
+
+/* ---------- composer ---------- */
+footer { background: var(--surface); border-top: 1px solid var(--line); padding: 16px 18px 22px; }
+.composer { max-width: 900px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+#input {
+  flex: 1; padding: 12px 20px; border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--bg); color: var(--ink); font: inherit; resize: none;
+  max-height: 150px; line-height: 1.5;
+}
+#input:focus { outline: none; border-color: var(--ink); }
+#send {
+  border: 1px solid var(--ink); border-radius: var(--radius-pill);
+  padding: 11px 22px; font: inherit; font-weight: 400;
+  background: var(--ink); color: var(--bg); cursor: pointer;
+}
+#send:hover { opacity: .85; }
+#send:disabled { opacity: .45; cursor: default; }
+#mic {
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink-2);
+  border-radius: var(--radius-pill); padding: 10px 15px; cursor: pointer; font-size: 15px;
+}
+#mic:hover { border-color: var(--ink); color: var(--ink); }
+#mic.on { background: var(--critical); border-color: var(--critical); color: #fff; }
+.foot-note {
+  max-width: 900px; margin: 8px auto 0; font-size: 11px; color: var(--ink-3);
+}
+.thinking { display: flex; align-items: center; gap: 9px; color: var(--ink-2); font-size: 13.5px; }
+.thinking span:last-child { transition: opacity .18s ease; }
+.spinner {
+  width: 12px; height: 12px; border: 2px solid var(--track);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 620px) {
+  .samples { grid-template-columns: 1fr; }
+  .wordmark { font-size: 38px; }
+  .bar-row { grid-template-columns: 92px 1fr 76px; }
+  .hero-num { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <button class="iconbtn" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">◐</button>
+  <button class="iconbtn" id="reset" title="New conversation" aria-label="New conversation">＋</button>
+</div>
+
+<div class="stage" id="stage" hidden>
+  <div class="orb-wrap">
+    <div class="orb" id="orb">
+      <span class="lay a"></span><span class="lay b"></span><span class="lay c"></span>
+      <span class="gloss"></span>
+    </div>
+  </div>
+  <div class="orb-state" id="orb-state">Listening</div>
+  <div class="orb-hint" id="orb-hint">tap the circle when you have finished</div>
+  <button class="orb-end" id="orb-end">End conversation</button>
+</div>
+
+<div id="log"><div class="wrap" id="wrap"></div></div>
+
+<footer>
+  <div class="composer">
+    <textarea id="input" rows="1" placeholder="Ask about congestion, expansion candidates, route mix…"></textarea>
+    <button id="mic" title="Ask by voice">🎤</button>
+    <button id="send">Send</button>
+  </div>
+  <div class="foot-note" id="voice-hint"></div>
+  </footer>
+
+<script>
+const wrap = document.getElementById('wrap');
+const input = document.getElementById('input');
+const send = document.getElementById('send');
+const mic = document.getElementById('mic');
+let sessionId = null;
+
+const SAMPLES = [
+  ['Regional screen', 'Which airports in New England are strong candidates for terminal expansion?'],
+  ['Comparison', 'Compare LA and Santa Ana airport congestion levels.'],
+  ['Route mix', 'What is the percentage of long haul flights out of Anchorage airport?'],
+  ['Diagnosis', 'What is the unmet flight demand in SFO airport and why?'],
+];
+
+// Direction follows the text being displayed, not the language of the question:
+// a Hebrew question can get an English answer and rendering that right-to-left
+// misplaces the punctuation.
+const isRtl = t => /[\u0590-\u05FF]/.test(String(t || ''));
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const pct = v => v == null ? '—' : v.toFixed(0);
+const ordinal = v => {
+  if (v == null) return '—';
+  const n = Math.round(v), t = n % 100;
+  const suffix = (t >= 11 && t <= 13) ? 'th'
+    : ({ 1: 'st', 2: 'nd', 3: 'rd' }[n % 10] || 'th');
+  return n + suffix;
+};
+const num = (v, d) => v == null ? '—' : Number(v).toFixed(d == null ? 1 : d);
+
+const METRIC_LABEL = {
+  peak_saturation: 'Peak saturation',
+  fullness: 'Fullness',
+  capacity_delay: 'Capacity delay',
+};
+const METRIC_TIP = {
+  peak_saturation: 'How close a typical hour runs to the busiest hour. A flat, busy day means no room left to add flights.',
+  fullness: 'Passengers divided by available seats. Full planes mean the demand is real.',
+  capacity_delay: 'NAS delay minutes per departure — the volume and airspace bucket only. Weather and knock-on delay are excluded.',
+};
+const RAW_FMT = {
+  peak_saturation: v => num(v, 2) + ' ratio',
+  fullness: v => num(v * 100, 1) + '%',
+  capacity_delay: v => num(v, 2) + ' min',
+};
+
+// ---------- markdown (tables, headings, lists — no dependency) ----------
+function md(src) {
+  const inline = s => esc(s)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>');
+  const out = [], lines = String(src || '').split('\n');
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (/^\s*\|.*\|\s*$/.test(line) && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1] || '')) {
+      const cells = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      const head = cells(line); i += 2;
+      const body = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) body.push(cells(lines[i++]));
+      out.push('<div class="table-scroll"><table><thead><tr>' +
+        head.map(h => '<th>' + inline(h) + '</th>').join('') + '</tr></thead><tbody>' +
+        body.map(r => '<tr>' + r.map(c => '<td>' + inline(c) + '</td>').join('') + '</tr>').join('') +
+        '</tbody></table></div>');
+      continue;
+    }
+    if (/^#{1,6}\s/.test(line)) { out.push('<h3>' + inline(line.replace(/^#{1,6}\s/, '')) + '</h3>'); i++; continue; }
+    if (/^\s*[-*]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[-*]\s+/.test(lines[i]))
+        items.push('<li>' + inline(lines[i++].replace(/^\s*[-*]\s+/, '')) + '</li>');
+      out.push('<ul>' + items.join('') + '</ul>'); continue;
+    }
+    if (/^\s*---+\s*$/.test(line)) { i++; continue; }
+    if (!line.trim()) { i++; continue; }
+    // Consume the first line unconditionally. Without this, a line starting
+    // with "|" that is not a well-formed table matches no branch above and the
+    // paragraph loop below takes nothing, so i never advances - an infinite
+    // loop that grows `out` until the array length is invalid.
+    const para = [lines[i++]];
+    while (i < lines.length && lines[i].trim() && !/^\s*[-*#|]/.test(lines[i])) para.push(lines[i++]);
+    out.push('<p>' + inline(para.join(' ')) + '</p>');
+  }
+  return out.join('');
+}
+
+// ---------- badges ----------
+function constraintBadge(type) {
+  const map = {
+    'terminal-limited': ['good', 'Terminal-limited', 'The building is the bottleneck — terminal expansion is actionable here.'],
+    'runway-limited': ['critical', 'Runway-limited', 'The airfield is the bottleneck. More gates would serve aircraft that still cannot take off.'],
+    'mixed': ['warn', 'Mixed constraint', 'Neither the terminal nor the airfield is clearly the binding constraint.'],
+    'unknown': ['neutral', 'Constraint unknown', 'Runway data unavailable, so the bottleneck cannot be identified.'],
+  };
+  const [cls, label, tip] = map[type] || map.unknown;
+  return '<span class="badge ' + cls + '" data-tip="' + esc(tip) + '"><span class="dot"></span>' + label + '</span>';
+}
+function confidenceBadge(level, caveats) {
+  const map = { high: ['good', 'High confidence'], medium: ['warn', 'Medium confidence'], low: ['serious', 'Low confidence'] };
+  const [cls, label] = map[level] || map.low;
+  const tip = (caveats && caveats.length)
+    ? caveats.join(' ')
+    : 'Coverage and data completeness are computed from the data, not estimated.';
+  return '<span class="badge ' + cls + '" data-tip="' + esc(tip) + '"><span class="dot"></span>' + label + '</span>';
+}
+
+// ---------- evidence cards ----------
+// `width` is bar length as a percent of the track. `rank` is the percentile to
+// print beside it, and is deliberately separate: in a cross-tier comparison the
+// bar shows relative magnitude between the two airports, which is NOT a
+// percentile, and labelling it as one would misstate what the reader is seeing.
+function barRow(label, width, rawText, tip, series, rank) {
+  const w = Math.max(0, Math.min(100, width == null ? 0 : width));
+  const value = (rank == null ? '' : ordinal(rank) + ' ') +
+                '<small>' + esc(rawText || '') + '</small>';
+  return '<div class="bar-row">' +
+    '<div class="bar-label" data-tip="' + esc(tip || '') + '">' + esc(label) + '</div>' +
+    '<div class="track"><div class="fill' + (series === 2 ? ' s2' : '') +
+      '" style="width:' + w.toFixed(1) + '%"></div></div>' +
+    '<div class="bar-val">' + value + '</div></div>';
+}
+
+function scoreCard(r) {
+  if (r.error) return null;
+  const comps = (r.components || []).map(c =>
+    barRow(METRIC_LABEL[c.name] || c.name, c.percentile_in_peer_group,
+           (RAW_FMT[c.name] || (v => num(v, 2)))(c.raw_value), METRIC_TIP[c.name],
+           1, c.percentile_in_peer_group)
+  ).join('');
+  const a = r.absolute_figures || {};
+  const cav = (r.caveats || []).map(c => '<div class="caveat">' + esc(c) + '</div>').join('');
+  return '<div class="card">' +
+    '<div class="card-head"><span class="card-code">' + esc(r.code) + '</span>' +
+      '<span class="card-name">' + esc(r.name || '') + '</span></div>' +
+    '<div class="hero"><span class="hero-num">' + num(r.final_score) + '</span>' +
+      '<span class="hero-label">final score · ranked among ' + esc(r.peer_group) + '</span></div>' +
+    '<div class="badges">' + constraintBadge(r.constraint_type) +
+      confidenceBadge(r.confidence, r.caveats) +
+      '<span class="badge neutral" data-tip="Passengers divided by available seats over the window.">' +
+      'Load factor ' + num((a.load_factor || 0) * 100, 1) + '%</span>' +
+      '<span class="badge neutral" data-tip="Scheduled departures in the busiest hour of a typical day.">' +
+      'Peak ' + num(a.peak_hour_departures, 0) + '/hr</span></div>' +
+    '<div class="bars">' + comps + '</div>' +
+    '<div class="formula">congestion <b>' + num(r.congestion_score) + '</b> × growth <b>×' +
+      num(r.growth_multiplier, 2) + '</b> = <b>' + num(r.final_score) + '</b></div>' +
+    cav + '</div>';
+}
+
+function rankCard(r) {
+  const groups = (r.ranking_by_tier || []).map(g => {
+    const top = g.airports[0] && g.airports[0].final_score || 100;
+    const rows = g.airports.map((a, i) =>
+      '<div class="rank-row"><span class="rank-n">' + (i + 1) + '</span>' +
+      '<span class="rank-code">' + esc(a.code) + '</span>' +
+      '<div class="track" data-tip="' + esc((a.name || '') + ' — ' + a.constraint_type +
+        (a.caveats && a.caveats.length ? ' · ' + a.caveats[0] : '')) + '">' +
+        '<div class="fill" style="width:' + (100 * (a.final_score || 0) / top).toFixed(1) + '%"></div></div>' +
+      '<span class="rank-score">' + num(a.final_score) + '</span></div>').join('');
+    return '<div class="tier-group"><div class="tier-title">' + esc(g.peer_group) + '</div>' + rows + '</div>';
+  }).join('');
+  const ex = (r.excluded || []).length
+    ? '<div class="excluded">Excluded: ' +
+      r.excluded.map(e => esc(e.code)).join(', ') + ' — below the volume threshold.</div>' : '';
+  return '<div class="card">' + groups +
+    '<div class="note">' + esc(r.note || '') + '</div>' + ex + '</div>';
+}
+
+function compareCard(r) {
+  const airports = r.airports || [];
+  if (!airports.length) return null;
+  const metrics = [
+    ['peak_saturation_ratio', 'Peak saturation', v => num(v, 2), 1],
+    ['load_factor', 'Load factor', v => num(v * 100, 1) + '%', 1],
+    ['nas_delay_minutes_per_departure', 'Capacity delay', v => num(v, 2) + ' min', 1],
+  ];
+  // Raw metrics lead when tiers differ: percentiles are computed inside each
+  // tier and mean different things, so comparing them directly would mislead.
+  const rows = metrics.map(([key, label, fmt]) => {
+    const vals = airports.map(a => a.raw_metrics[key] || 0);
+    const max = Math.max.apply(null, vals.concat([0.0001]));
+    return '<div class="tier-group"><div class="tier-title">' + label + '</div>' +
+      airports.map((a, i) => barRow(a.code, 100 * (a.raw_metrics[key] || 0) / max,
+        fmt(a.raw_metrics[key]),
+        a.name + ' · ' + a.peer_group + ' · bar length compares these airports directly; '
+        + 'percentiles are computed within each tier and are not comparable across them',
+        i + 1)).join('') + '</div>';
+  }).join('');
+  const heads = airports.map((a, i) =>
+    '<div class="tile"><div class="tile-num">' + num(a.final_score) + '</div>' +
+    '<div class="tile-label">' + esc(a.code) + ' · ' + esc(a.peer_group) + '</div>' +
+    '<div class="tile-sub">' + esc(a.constraint_type) + '</div></div>').join('');
+  return '<div class="card"><div class="tiles">' + heads + '</div>' +
+    '<div class="bars" style="margin-top:14px">' + rows + '</div>' +
+    '<div class="note">' + esc(r.comparison_basis || '') + '</div></div>';
+}
+
+function routeCard(r) {
+  if (r.error) return null;
+  const svc = r.by_service || {};
+  const tiles = Object.keys(svc).map(k => {
+    const d = svc[k];
+    return '<div class="tile" data-tip="' + esc(d.long_haul_departures.toLocaleString() +
+      ' of ' + d.total_departures.toLocaleString() + ' departures were ' +
+      r.long_haul_definition_miles + '+ miles') + '">' +
+      '<div class="tile-num">' + num(d.long_haul_share * 100, 1) + '%</div>' +
+      '<div class="tile-label">' + k + ' long-haul</div>' +
+      '<div class="tile-sub">' + d.destinations + ' destinations · ' +
+      num(d.international_share * 100, 0) + '% international</div></div>';
+  }).join('');
+  return '<div class="card">' +
+    '<div class="card-head"><span class="card-code">' + esc(r.code) + '</span>' +
+    '<span class="card-name">' + esc(r.name || '') + '</span></div>' +
+    '<div class="tiles">' + tiles + '</div>' +
+    (r.note ? '<div class="caveat">' + esc(r.note) + '</div>' : '') +
+    '<div class="note">' + esc(r.assumption || '') + '</div></div>';
+}
+
+const RENDERERS = {
+  score_airport: scoreCard,
+  rank_airports: rankCard,
+  compare_airports: compareCard,
+  route_profile: routeCard,
+};
+
+function evidence(calls) {
+  if (!calls || !calls.length) return '';
+  const cards = [];
+  const seen = new Set();
+  for (const c of calls) {
+    const fn = RENDERERS[c.tool];
+    if (!fn) continue;
+    const key = c.tool + JSON.stringify(c.args);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    try { const html = fn(c.result); if (html) cards.push(html); } catch (e) { /* fall back to trace */ }
+  }
+  const trace = '<details class="trace"><summary>analysis — ' + calls.length +
+    ' deterministic tool call' + (calls.length > 1 ? 's' : '') + '</summary>' +
+    calls.map(c => '<div class="call"><span class="sig">' + esc(c.tool) + '(' +
+      esc(JSON.stringify(c.args).slice(1, -1)) + ')</span><pre>' +
+      esc(JSON.stringify(c.result, null, 1)) + '</pre></div>').join('') + '</details>';
+  return (cards.length ? '<div class="evidence">' + cards.join('') + '</div>' : '') + trace;
+}
+
+// Rotating status words while the agent works. The wait is real - the free
+// tier makes us sleep between tool rounds - so the honest options are a blank
+// spinner or something that reads like the machine is doing the job. A nod to
+// Wonderful, in the domain's own vocabulary.
+const WORKING = [
+  'Taxiing to the data\u2026',
+  'Checking the departure boards\u2026',
+  'Counting gates\u2026',
+  'Reading delay codes\u2026',
+  'Looking for a landing slot\u2026',
+  'Cross-checking runways\u2026',
+  'Stacking load factors\u2026',
+  'Holding for clearance\u2026',
+  'Wondering, wonderfully\u2026',
+  'Making something wonderful\u2026',
+  'Consulting air traffic control\u2026',
+  'Weighing the peak hour\u2026',
+  'Separating cargo from passengers\u2026',
+  'Ranking within tier\u2026',
+];
+
+function working(bubble, first) {
+  const el = document.createElement('div');
+  el.className = 'thinking';
+  const label = document.createElement('span');
+  label.textContent = first || WORKING[Math.floor(Math.random() * WORKING.length)];
+  el.innerHTML = '<span class="spinner"></span>';
+  el.appendChild(label);
+  bubble.innerHTML = '';
+  bubble.appendChild(el);
+  let i = Math.floor(Math.random() * WORKING.length);
+  const timer = setInterval(() => {
+    i = (i + 1 + Math.floor(Math.random() * (WORKING.length - 1))) % WORKING.length;
+    label.style.opacity = '0';
+    setTimeout(() => { label.textContent = WORKING[i]; label.style.opacity = '1'; }, 180);
+  }, 2600);
+  return () => clearInterval(timer);
+}
+
+// ---------- chat ----------
+function turn(role, html) {
+  const div = document.createElement('div');
+  div.className = 'turn ' + role;
+  div.innerHTML = '<div class="who">' + (role === 'user' ? 'You' : 'Analyst') +
+                  '</div><div class="bubble">' + html + '</div>';
+  wrap.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return div;
+}
+
+async function ask(text) {
+  if (!text.trim() || send.disabled) return;
+  const empty = document.getElementById('empty');
+  if (empty) empty.remove();
+  turn('user', '<p>' + esc(text) + '</p>');
+  input.value = ''; input.style.height = 'auto'; send.disabled = true;
+  const pending = turn('bot', '');
+  const stopWorking = working(pending.querySelector('.bubble'));
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text, session_id: sessionId }),
+    });
+    const data = await res.json();
+    sessionId = data.session_id;
+    const bubble = pending.querySelector('.bubble');
+    if (data.error) {
+      bubble.innerHTML = '<div class="err">' + esc(data.error) + '</div>';
+      resumeListening();
+    } else {
+      bubble.innerHTML = md(data.answer) + evidence(data.tool_calls);
+      if (isRtl(data.answer)) bubble.setAttribute('dir', 'rtl');
+    }
+  } catch (err) {
+    console.error('chat render failed', err);
+    pending.querySelector('.bubble').innerHTML =
+      '<div class="err">Request failed: ' + esc(err) + '</div>';
+  } finally {
+    stopWorking();
+    send.disabled = false; input.focus();
+  }
+}
+
+// ---------- voice: a shell at the edges, invisible to agent and scoring ----------
+// Audio is captured and encoded to 16 kHz mono WAV in the browser rather than
+// handed to MediaRecorder: transcription providers accept WAV universally,
+// WebM/Opus is not accepted by all of them, and server-side transcoding would
+// mean an ffmpeg dependency for one feature.
+let audioCtx = null, mediaStream = null, processor = null, chunks = [], recording = false;
+let silenceFrames = 0, speechFrames = 0;
+
+// Continuous conversation: the microphone reopens by itself once the agent has
+// finished speaking, so a follow-up is just talking again. It reopens only
+// AFTER speech ends - listening through our own voice would feed the reply
+// straight back into the transcriber.
+let conversing = false, speaking = false, bargeFrames = 0, lastSpokenText = '';
+let loudestFrame = 0;
+// Every frame's level, whether or not it cleared the bar. Without this a
+// rejection reports a loudest of 0 and says nothing about how loud the speaker
+// actually was - which is the one number needed to know if the bar is wrong.
+let peakRms = 0;
+
+// Auto-stop after a pause, so a question is one action rather than two clicks.
+// Thresholds are deliberately forgiving: cutting someone off mid-sentence is a
+// far worse failure than waiting an extra beat.
+// Fixed thresholds assume a particular microphone gain. A quieter setup never
+// crossed the speech bar, so the recorder listened forever and nothing was ever
+// sent - with no manual way out. The floor is now calibrated from the room:
+// the quietest level seen this session becomes the reference, and speech is
+// anything clearly above it (ADR-0026).
+let noiseFloor = null;
+const NOISE_MULTIPLE = 3;       // speech sits clearly above the room, not at it
+
+// The bar is adaptive between two limits, and both limits are load-bearing.
+// Without a ceiling, a recording that opens mid-word takes its "room" reading
+// from the voice itself and the bar lands at three times normal speech, which
+// silences the speaker completely. The old ceiling was 0.012 - below the level
+// an AGC-lifted room actually sits at, which is why every frame counted as
+// speech. Measured: room ~0.012-0.016, speech peaks 0.10-0.25.
+const SPEECH_BAR_CEILING = 0.030;
+
+// A frame of true digital silence is not a quiet room - it is a stream that has
+// not started yet. Counting those as the room pinned the floor at zero for the
+// whole session, and since the floor only ever fell it never recovered: the
+// adaptive bar was permanently the fixed one. Measured live as noiseFloor: 0 on
+// every single recording (ADR-0027).
+const DEAD_FRAME_RMS = 0.0002;
+
+// End of speech is judged against how loud THIS utterance is, not against an
+// absolute level. Automatic gain control lifts a quiet room until every frame
+// clears any fixed bar, so the pause was never seen: 322 speech frames out of
+// 322, on every recording, each running to the cap and sending ~28 seconds of
+// mostly nothing to Whisper (ADR-0027).
+const END_OF_SPEECH_FRACTION = 0.18;
+const MAX_RECORD_SECONDS = 20;  // nothing listens indefinitely
+const SILENT_START_SECONDS = 5; // nothing at all yet - stop, do not wait it out
+
+// A voice is not merely above the bar, it is clearly above it. What this has to
+// separate is a flat lifted room (0.012-0.016) from a quiet speaker, and those
+// are much closer together than a room is from ordinary speech - so the margin
+// is small and floored, not a plain multiple. A multiple of 2 on top of the
+// 0.030 ceiling demanded a peak of 0.060 and rejected a soft voice outright,
+// which is the failure this detector already had once (ADR-0027). At 1.2 it
+// still rejected a voice at 0.034. The bar itself is already 3x the room; this
+// only has to stop a lifted room being mistaken for a voice, and the absolute
+// floor of 0.020 does that on its own.
+const SPEECH_PRESENCE_MULTIPLE = 1.0;
+
+function speechPresenceNow() {
+  return Math.max(ABSOLUTE_SPEECH_FLOOR * 2,
+                  speechBarNow() * SPEECH_PRESENCE_MULTIPLE);
+}
+
+// The adaptive bar may rise above this but never below it. Letting it fall to
+// room tone made every pause look like speech, so silence was recorded and
+// sent - and Whisper does not return nothing for silence, it returns a phrase
+// from its training data. "Thank you" and "תודה" are the usual ones (ADR-0026).
+const ABSOLUTE_SPEECH_FLOOR = 0.010;
+const SILENCE_FRAMES = 14;      // ~1.2s of quiet at 4096 samples / 48kHz
+const MIN_SPEECH_FRAMES = 6;    // ignore a click or a cough
+
+// Barge-in sits above the speech bar, not at a fixed level. A fixed 0.045 was
+// unreachable on a quieter microphone - the same reason speech detection failed
+// - so interrupting simply never worked. It is expressed as a multiple of the
+// bar the room has already calibrated, so it scales with the setup.
+//
+// Still deliberately higher than plain speech: echo cancellation suppresses our
+// own voice without erasing it, and cutting the assistant off for no reason is
+// the more annoying failure of the two.
+const BARGE_MULTIPLE = 2.0;
+const BARGE_FRAMES = 3;
+
+// One definition, so the detector and the diagnostics measuring it cannot drift.
+function speechBarNow() {
+  const floor = noiseFloor === null ? 0 : noiseFloor;
+  return Math.min(SPEECH_BAR_CEILING,
+                  Math.max(ABSOLUTE_SPEECH_FLOOR, floor * NOISE_MULTIPLE));
+}
+
+function floatTo16k(buffers, inRate) {
+  const flat = new Float32Array(buffers.reduce((n, b) => n + b.length, 0));
+  let o = 0;
+  for (const b of buffers) { flat.set(b, o); o += b.length; }
+  const ratio = inRate / 16000;
+  const out = new Int16Array(Math.floor(flat.length / ratio));
+  for (let i = 0; i < out.length; i++) {
+    const s = Math.max(-1, Math.min(1, flat[Math.floor(i * ratio)] || 0));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+}
+
+function wavBlob(pcm16) {
+  const buf = new ArrayBuffer(44 + pcm16.length * 2), view = new DataView(buf);
+  const str = (off, t) => { for (let i = 0; i < t.length; i++) view.setUint8(off + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); view.setUint32(4, 36 + pcm16.length * 2, true); str(8, 'WAVE');
+  str(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true); view.setUint32(24, 16000, true);
+  view.setUint32(28, 32000, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  str(36, 'data'); view.setUint32(40, pcm16.length * 2, true);
+  new Int16Array(buf, 44).set(pcm16);
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+// The microphone is acquired once per conversation, not once per turn.
+// Tearing the stream down after every answer and immediately reacquiring it
+// returned a dead device: the first turn measured a peak of 0.23, and the eight
+// after it measured 0.0000-0.0006 - no signal at all, not a quiet room. It also
+// made Safari ask for permission on every single turn (ADR-0027).
+function microphoneIsLive() {
+  return !!mediaStream && !!audioCtx && audioCtx.state !== 'closed' &&
+         mediaStream.getTracks().some(t => t.readyState === 'live');
+}
+
+async function ensureMicrophone() {
+  if (microphoneIsLive()) {
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    return;
+  }
+  await releaseMicrophone();   // whatever is left of a half-dead one
+  // Echo cancellation is what makes barge-in possible at all: without it the
+  // microphone hears our own synthesised voice and interrupts itself.
+  mediaStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  });
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = audioCtx.createMediaStreamSource(mediaStream);
+  processor = audioCtx.createScriptProcessor(4096, 1, 1);
+  processor.onaudioprocess = e => {
+    // The graph stays up for the whole conversation. Frames matter while a turn
+    // is being captured, and while the assistant is talking - that second case
+    // is barge-in, which only works because the microphone is still listening.
+    if (!recording && !speaking) return;
+    const frame = new Float32Array(e.inputBuffer.getChannelData(0));
+    chunks.push(frame);
+    let sum = 0;
+    for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+    const rms = Math.sqrt(sum / frame.length);
+    if (conversing) {
+      orbWrap.style.setProperty('--amp', Math.min(1, rms * 9).toFixed(3));
+    }
+    // Count frames of actual speech, not total frames: otherwise a cough sets
+    // spokeAtAll and the following silence auto-sends a recording of nothing.
+    if (speaking) {
+      // While the assistant talks, only a clear interruption counts; quiet
+      // frames reset the counter so background noise cannot accumulate.
+      const bargeBar = speechBarNow() * BARGE_MULTIPLE;
+      bargeFrames = rms > bargeBar ? bargeFrames + 1 : 0;
+      if (bargeFrames >= BARGE_FRAMES) {
+        stopSpeaking();
+        speaking = false; bargeFrames = 0;
+        // The interruption becomes the turn, so capture is on from here.
+        recording = true;
+        chunks = chunks.slice(-BARGE_FRAMES);   // keep the interrupting words
+        speechFrames = BARGE_FRAMES; silenceFrames = 0;
+        setState('listening');
+      }
+      return;
+    }
+    // Track the quietest real level seen, and treat speech as clearly above it.
+    if (rms > DEAD_FRAME_RMS) {
+      noiseFloor = noiseFloor === null ? rms : Math.min(noiseFloor, rms);
+    }
+    peakRms = Math.max(peakRms, rms);
+    const speechBar = speechBarNow();
+    if (rms > speechBar) { loudestFrame = Math.max(loudestFrame, rms); speechFrames++; }
+
+    // Two bars, deliberately. The speech bar answers "is anyone talking"; this
+    // one answers "have they stopped", and it must be relative to the voice it
+    // is listening to - with gain control the room itself sits above any fixed
+    // bar, so an absolute test never sees the pause.
+    const quietBar = Math.max(speechBar, peakRms * END_OF_SPEECH_FRACTION);
+    if (rms > quietBar) silenceFrames = 0;
+    else if (speechFrames >= MIN_SPEECH_FRAMES) silenceFrames++;
+    if (silenceFrames >= SILENCE_FRAMES && recording) stopRecording();
+
+    const seconds = chunks.length * 4096 / e.inputBuffer.sampleRate;
+    // Nothing may listen indefinitely. If the detector never fires, the clip is
+    // sent anyway rather than leaving the user with no way to submit.
+    if (recording && seconds > MAX_RECORD_SECONDS) stopRecording();
+    // Nothing loud enough to be a voice has happened yet, so there is nothing
+    // to wait for. Relative, not a frame count: a room lifted by gain control
+    // fills the frame count on its own without anyone having spoken.
+    if (recording && seconds > SILENT_START_SECONDS &&
+        peakRms < speechPresenceNow()) {
+      stopRecording();
+    }
+  };
+  src.connect(processor); processor.connect(audioCtx.destination);
+}
+
+async function startRecording() {
+  await ensureMicrophone();
+  resetCapture();   // noiseFloor persists: the room does not change per turn
+  recording = true; setState('listening');
+  unlockAudio();
+}
+
+// What the microphone measured, sent to the server log. Every threshold in this
+// file was wrong the first time because it was picked against synthetic audio;
+// this is how the real numbers get seen without reading a console over a
+// screenshot. Fire-and-forget - it must never affect the turn it describes.
+function report(event, data) {
+  try {
+    fetch('/api/diag', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({ event: event }, data)),
+    }).catch(() => {});
+  } catch (e) { /* diagnostics never break the thing they measure */ }
+}
+
+// Hand the microphone back to the operating system. Stopping the tracks is what
+// clears the recording indicator; without it the browser holds the device open
+// and the menu bar keeps showing a live microphone after the conversation has
+// ended (ADR-0027). Safe to call twice.
+async function releaseMicrophone() {
+  try { if (processor) processor.disconnect(); } catch (e) { /* already gone */ }
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(t => t.stop());
+    mediaStream = null;
+  }
+  if (audioCtx && audioCtx.state !== 'closed') {
+    try { await audioCtx.close(); } catch (e) { /* already closing */ }
+  }
+}
+
+async function stopRecording(discard) {
+  if (!recording) return;
+  recording = false; setState(discard ? 'idle' : 'thinking');
+  const rate = audioCtx ? audioCtx.sampleRate : 48000;
+  // Held open for the rest of the conversation; released only on the way out.
+  if (!conversing) await releaseMicrophone();
+  const heardSpeech = speechFrames >= MIN_SPEECH_FRAMES &&
+                      peakRms >= speechPresenceNow();
+  const measured = {
+    frames: chunks.length,
+    seconds: +(chunks.length * 4096 / rate).toFixed(1),
+    speechFrames: speechFrames,
+    needed: MIN_SPEECH_FRAMES,
+    loudest: +loudestFrame.toFixed(4),
+    peak: +peakRms.toFixed(4),
+    noiseFloor: noiseFloor === null ? null : +noiseFloor.toFixed(4),
+    speechBar: +speechBarNow().toFixed(4),
+    quietBar: +Math.max(speechBarNow(),
+                        peakRms * END_OF_SPEECH_FRACTION).toFixed(4),
+    presence: +speechPresenceNow().toFixed(4),
+    rate: rate,
+  };
+  chunks = discard ? [] : chunks;
+  if (discard || !chunks.length) { chunks = []; return; }
+
+  // Never send a recording with no speech in it. Whisper answers silence with
+  // an invented phrase, and the agent then answers that.
+  if (!heardSpeech) {
+    chunks = [];
+    report('rejected', measured);
+    carryHint('I did not catch anything \u2014 try speaking a little louder.');
+    resumeListening();
+    return;
+  }
+  report('sent', measured);
+  const blob = wavBlob(floatTo16k(chunks, rate));
+  chunks = [];
+  await sendVoice(blob);
+}
+
+function blobToBase64(blob) {
+  return new Promise(res => {
+    const r = new FileReader();
+    r.onloadend = () => res(String(r.result).split(',')[1]);
+    r.readAsDataURL(blob);
+  });
+}
+
+let voiceRequest = null;   // in flight, so ending the conversation can abort it
+
+async function sendVoice(blob) {
+  const empty = document.getElementById('empty');
+  if (empty) empty.remove();
+  send.disabled = true; mic.disabled = true;
+  const pending = turn('bot', '');
+  const stopWorking = working(pending.querySelector('.bubble'), 'Listening back\u2026');
+  try {
+    voiceRequest = new AbortController();
+    const data = await (await fetch('/api/voice', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      signal: voiceRequest.signal,
+      // Speech is a separate request, so the written answer appears the moment
+      // it exists rather than waiting on synthesis.
+      body: JSON.stringify({
+        audio_base64: await blobToBase64(blob), mime_type: 'audio/wav',
+        session_id: sessionId,
+      }),
+    })).json();
+
+    if (data.session_id) sessionId = data.session_id;
+    const bubble = pending.querySelector('.bubble');
+
+    // Nothing was answered, so nothing should appear as an answer. The empty
+    // bubble is removed and the reason goes to the hint line under the
+    // controls, where it replaces itself instead of stacking (ADR-0026).
+    if (data.unheard) {
+      pending.remove();
+      carryHint(data.unheard);
+      resumeListening();
+      return;
+    }
+
+    if (data.transcript) {
+      // The transcript is shown as the user's turn, above the answer it
+      // produced, so a mishearing is visible rather than silently answered.
+      const heard = document.createElement('div');
+      heard.className = 'turn user';
+      heard.innerHTML = '<div class="who">You \u00b7 heard via ' +
+        esc(data.transcribed_by || 'speech') + '</div><div class="bubble"' +
+        (isRtl(data.transcript) ? ' dir="rtl"' : '') + '><p>' + esc(data.transcript) + '</p></div>';
+      pending.parentNode.insertBefore(heard, pending);
+    }
+    if (data.error) {
+      bubble.innerHTML = '<div class="err">' + esc(data.error) + '</div>';
+      resumeListening();
+    } else {
+      bubble.innerHTML = md(data.answer) + evidence(data.tool_calls);
+      if (isRtl(data.answer)) bubble.setAttribute('dir', 'rtl');
+      if (data.speech_error) bubble.insertAdjacentHTML('beforeend',
+        '<div class="caveat">Spoken reply unavailable: ' + esc(data.speech_error) + '</div>');
+      // Spoken because the question was spoken - voice in, voice out, instantly.
+      say(data.answer);
+    }
+  } catch (err) {
+    // Ending the conversation aborts whatever was in flight. That is the user
+    // deciding to stop, not a failure, and it must not leave a red box in the
+    // transcript under the analyst's name.
+    if (err && err.name === 'AbortError') {
+      pending.remove();
+      return;
+    }
+    console.error('voice failed', err);
+    pending.querySelector('.bubble').innerHTML =
+      '<div class="err">Voice request failed: ' + esc(err) + '</div>';
+    resumeListening();
+  } finally {
+    voiceRequest = null;
+    stopWorking();
+    send.disabled = false; mic.disabled = false;
+    // Not while the orb is up. Focusing the composer behind it makes macOS pop
+    // its input-language indicator over the conversation, for a text field the
+    // user cannot even see.
+    if (!conversing) input.focus();
+  }
+}
+
+function hint(text) {
+  const el = document.getElementById('voice-hint');
+  if (el) el.textContent = text || '';
+}
+
+// A reason for not answering has to survive the state change that follows it.
+// Reopening the microphone repaints this same line, so the explanation used to
+// be written and erased within the same frame - the user saw only that nothing
+// happened. Carried text is shown alongside the next state's hint, once.
+let carriedHint = '';
+function carryHint(text) { carriedHint = text; hint(text); }
+
+// Speech output runs in the browser, not through the API. Gemini's voice is
+// better, but it costs 10-30s of synthesis against a ~10-request/minute quota,
+// and half a minute of silence is a worse answer than a plainer voice that
+// starts immediately. The API path is kept at /api/speak for a higher-quality
+// replay on demand.
+// macOS ships a pile of novelty voices (Bubbles, Bad News, Zarvox, Jester...)
+// alongside the real ones, and getVoices() returns them in arbitrary order - so
+// taking the first match for a language can hand you a joke voice. Voices are
+// scored instead of picked.
+const NOVELTY = /bubble|boing|bad news|good news|jester|organ|cello|bells|whisper|wobble|zarvox|trinoids|superstar|junior|grandma|grandpa|albert|ralph|fred|eddy|flo|reed|rocko|sandy|shelley|deranged|hysterical|בועות|בוינג|חדשות|ליצן|עוגב|צ׳לו|פעמונים|לחישה|התנודדות|זארווקס|טרינואה|סופרסטאר|ג׳וניור|אלברט|פרד|אוף/i;
+// A downloaded high-quality voice is a different class of thing from a legacy
+// named one, so it scores separately and higher. Lumping them together left
+// "Lee (Premium)" tied with Daniel and Samantha at 40, and losing on list
+// order - the user downloaded 165 MB that was then never used (ADR-0028).
+const HIGH_QUALITY = /premium|enhanced|neural|natural|siri/i;
+const PREFERRED = /google|samantha|karen|daniel|serena|moira|tessa|סמנתה|כרמית/i;
+
+function voiceScore(v) {
+  let score = 0;
+  if (NOVELTY.test(v.name)) score -= 100;      // never, unless nothing else exists
+  if (HIGH_QUALITY.test(v.name)) score += 60;   // a downloaded neural voice
+  if (PREFERRED.test(v.name)) score += 40;      // a known-good legacy voice
+  if (!v.localService) score += 30;            // network voices are markedly better
+  if (v.default) score += 10;
+  return score;
+}
+
+// getVoices() is empty until the engine has enumerated them, so the list is
+// cached on the voiceschanged event as well as read directly.
+let voiceCache = [];
+function refreshVoices() { voiceCache = speechSynthesis.getVoices() || []; }
+if (window.speechSynthesis) {
+  refreshVoices();
+  speechSynthesis.onvoiceschanged = refreshVoices;
+}
+
+function pickVoice(text) {
+  const want = isRtl(text) ? 'he' : 'en';
+  const list = (speechSynthesis.getVoices() || []).length ? speechSynthesis.getVoices() : voiceCache;
+  const candidates = list.filter(v => v.lang.toLowerCase().startsWith(want));
+  if (!candidates.length) return null;
+  return candidates.slice().sort((a, b) => voiceScore(b) - voiceScore(a))[0];
+}
+
+// Synthesisers read raw analyst prose badly: "88.3rd" becomes noise, "x1.05"
+// is read as a letter, and "SFO" is sounded out as a word. Rewriting a handful
+// of patterns into what a person would actually say does more for naturalness
+// than any voice setting.
+function speechText(text) {
+  const t = String(text || '');
+  const hebrew = isRtl(t);
+  // Symbols must be spoken in the language of the sentence: dropping "percent"
+  // into Hebrew prose is exactly the kind of seam that makes synthesis sound
+  // like a machine reading a spreadsheet.
+  const words = hebrew
+    ? { percent: ' אחוז', times: ' כפול ', equals: ' שווה ' }
+    : { percent: ' percent', times: ' times ', equals: ' equals ' };
+
+  return t
+    .replace(/\(([^)]{0,90})\)/g, ', $1, ')
+    // Pacing is punctuation. A synthesiser takes its breath from full stops, so
+    // a colon or semicolon - which it runs straight through - becomes one.
+    .replace(/\s*[;:]\s*/g, '. ')
+    // "10,000" read with the separator becomes "ten, zero zero zero".
+    .replace(/(\d),(?=\d{3}\b)/g, '$1')
+    .replace(/\s*[×xX]\s*(?=[\d.])/g, words.times)
+    .replace(/\s*=\s*/g, words.equals)
+    .replace(/(\d)\s*%/g, '$1' + words.percent)
+    // "88.3rd" is unreadable; a decimal percentile takes no ordinal suffix.
+    .replace(/(\d*\.\d+)(?:st|nd|rd|th)\b/gi, '$1')
+    // Hebrew synthesis reads a bare decimal point as punctuation and stops
+    // dead in the middle of the number. Saying the word keeps the sentence
+    // moving, and keeps the figure exact - it is never rounded for speech.
+    .replace(/(\d)\.(\d+)/g, (m, whole, frac) =>
+      // Digits after the point are said one by one: "0.816" as "zero point
+      // eight one six", the way a person reads a ratio, rather than "eight
+      // hundred and sixteen".
+      whole + (hebrew ? ' נקודה ' : ' point ') +
+      (frac.length > 1 ? frac.split('').join(' ') : frac))
+    // Three-letter codes are initialisms; spacing them stops "SFO" being
+    // pronounced as a word, in either language.
+    .replace(/\b([A-Z]{3})\b/g, m => m.split('').join(' '))
+    // Only a dash used as punctuation becomes a pause. An intra-word hyphen is
+    // part of the word: "terminal-limited" was being read as "terminal,
+    // limited", and "on-time" as "on, time", which is most of what made the
+    // delivery sound chopped.
+    .replace(/\s+[-–—]\s+/g, ', ')
+    // A long clause with no punctuation is read in one flat breath.
+    .replace(/\b(though|because|while|which|and then|so that)\b/gi, ', $1')
+    .replace(/\b(אבל|כיוון ש|בעוד|ולכן|כלומר)\b/g, ', $1')
+    .replace(/\s*[·|]\s*/g, ', ')
+    .replace(/\.{2,}/g, '.')
+    .replace(/,\s*,+/g, ',')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,.!?])/g, '$1')
+    .replace(/^[,\s]+/, '')
+    .trim();
+}
+
+// Listen while speaking, so the assistant can be interrupted. The recorder
+// stays open through the reply; sustained speech above the barge threshold
+// cancels playback and the interruption becomes the next question.
+// Barge-in needs the microphone graph live while the assistant talks - nothing
+// more. The frame handler processes frames whenever `speaking` is true, so
+// starting a turn here was wrong twice over: it flipped the orb to Listening in
+// the middle of the answer, and it began capturing the assistant's own voice.
+async function listenWhileSpeaking() {
+  if (!conversing) return;
+  try { await ensureMicrophone(); } catch (e) { /* keep speaking regardless */ }
+}
+
+// Speech output goes through the browser's own voice: one speak(), one onend.
+// `speechSession` still guards it, because an interrupted reply must never be
+// heard after the interruption, and speechSynthesis.cancel() is asynchronous.
+//
+// The AudioContext below is kept for the microphone side and for unlocking
+// audio during the click gesture (ADR-0028).
+let playbackCtx = null;
+let liveSources = [];      // scheduled chunks, so an interruption can stop them all
+let speechSession = 0;     // bumped per utterance; late chunks from an
+                           // interrupted reply must never start playing
+
+function unlockAudio() {
+  if (!playbackCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    playbackCtx = new Ctx();
+  }
+  if (playbackCtx.state === 'suspended') playbackCtx.resume().catch(() => {});
+  unlockSpeech();
+}
+
+// Safari ignores speechSynthesis.speak() unless it happens inside a user
+// gesture, and the reply arrives seconds after the click - so it heard the
+// question, answered it, and then silently refused to say it out loud.
+// Speaking one silent utterance during the gesture unlocks it for the life of
+// the page. It also nudges Safari into loading its voice list, which is empty
+// until something asks (ADR-0028).
+let speechUnlocked = false;
+function unlockSpeech() {
+  if (speechUnlocked || !window.speechSynthesis) return;
+  speechUnlocked = true;
+  try {
+    const primer = new SpeechSynthesisUtterance(' ');
+    primer.volume = 0;
+    speechSynthesis.speak(primer);
+    speechSynthesis.getVoices();
+  } catch (e) { /* nothing to unlock */ }
+}
+
+function say(text) {
+  const spoken = speakable(text);
+  lastSpokenText = text;
+  if (!spoken) { resumeListening(); return; }
+  setState('speaking');
+  speaking = true;
+  (SPEAK_WITH === 'openai' ? speakRemote : speakLocally)(spoken);
+}
+
+function finishedSpeaking() {
+  // One utterance, one ending. Every path that can decide the answer is over -
+  // the last chunk finishing, a decode failing, the browser voice ending - calls
+  // this, and more than one of them fires in a normal turn.
+  if (!speaking) return;
+  speaking = false;
+  if (recording) {
+    // The microphone stayed open through the answer so barge-in could work, and
+    // every one of those frames went into the buffer. They are the assistant's
+    // own voice. Left there, the next clip sent for transcription is the answer
+    // followed by the question - which is how a spoken list of airport codes
+    // came back as the user's next turn. The turn starts empty.
+    resetCapture();
+    setState('listening');
+  } else {
+    resumeListening();
+  }
+}
+
+// Everything the detector accumulates about one utterance, in one place, so a
+// new turn cannot inherit the last one's audio or counters.
+function resetCapture() {
+  chunks = [];
+  silenceFrames = 0; speechFrames = 0; bargeFrames = 0;
+  loudestFrame = 0; peakRms = 0;
+}
+
+// Speech output goes through the browser's own voice (ADR-0028). The server
+// can still synthesise with OpenAI at /api/speak - better Hebrew, a 2.5-3.5s
+// wait - and switching back is one call in say(). It is not the default because
+// a single synchronous speak() with one onend has no ordering, no counting and
+// no ending to infer, and that bookkeeping is where every voice fault came from.
+
+// Which engine speaks first. The other is the fallback, either way.
+//
+//   'browser'  instant, free, offline. Hebrew is capped at Carmit (Enhanced),
+//              which is concatenative - macOS ships no premium Hebrew voice.
+//   'openai'   neural Hebrew, 2.5-3.5s before the first word (ADR-0028).
+//
+// One word changes it, and both paths are exercised because each is the
+// other's fallback.
+const SPEAK_WITH = 'browser';
+
+function speakLocally(text, isFallback) {
+  if (!text) { finishedSpeaking(); return; }
+  const voice = window.speechSynthesis ? pickVoice(text) : null;
+  // No engine, or no voice for this language: the answer is still worth
+  // hearing, so it goes to the server rather than being read in the wrong
+  // language or not at all (ADR-0028).
+  if (!voice) {
+    if (isFallback) { finishedSpeaking(); return; }   // both engines are out
+    speakRemote(text, true);
+    return;
+  }
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(speechText(text));
+  utter.voice = voice; utter.lang = voice.lang;
+  // Slightly under the default. Apple's concatenative voices join their
+  // recorded fragments more smoothly at a relaxed pace, and Hebrew - which has
+  // only Carmit - benefits most. Faster than this and the joins are audible.
+  utter.rate = isRtl(text) ? 0.93 : 0.98;
+  utter.pitch = 1.0;
+  // Safari in particular can accept an utterance and then refuse it. If it
+  // failed before making any sound, the reply has not been heard at all, so it
+  // is worth the wait to synthesise it properly; if it failed part-way, the
+  // turn is simply over.
+  let started = false;
+  const session = speechSession;
+  utter.onstart = () => { started = true; };
+  utter.onend = finishedSpeaking;
+  utter.onerror = () => {
+    if (session !== speechSession) return;      // interrupted, not failed
+    if (started) { finishedSpeaking(); return; }
+    report('speech-fallback', { reason: 'browser voice refused' });
+    if (isFallback) { finishedSpeaking(); return; }
+    speakRemote(text, true);
+  };
+  speechSynthesis.speak(utter);
+  listenWhileSpeaking();
+}
+
+// The fallback: one request, one buffer, one ending. This is the OpenAI path,
+// measured at 2.5-3.5s to the first word against instant for a local voice -
+// which is why it is the fallback and not the default. It is also the only
+// route to a neural Hebrew voice, since macOS ships no premium Hebrew.
+const HTTP_NO_CONTENT = 204;
+const END_WATCHDOG_MARGIN_SECONDS = 0.6;
+
+// The first sentence is synthesised on its own and starts playing while the
+// rest is still being made. Measured: ~1.8s of fixed overhead plus time that
+// grows with length, so 420 characters costs 4.2s but 60 costs 2.0s. The
+// remainder takes ~4s and the first sentence gives 5-10s of audio to cover it.
+//
+// Two parts, requested in order, awaited in order. That is deliberately not the
+// twenty-slice streaming this replaced: there is nothing to reorder, and the
+// utterance is over when the second part ends (ADR-0028).
+const FIRST_SENTENCE_MIN = 25;    // shorter than this is not worth a request
+const FIRST_SENTENCE_MAX = 140;   // longer and the split stops paying for itself
+
+function splitFirstSentence(text) {
+  const t = String(text || '').trim();
+  if (t.length <= FIRST_SENTENCE_MIN * 2) return [t, ''];
+  const re = /[.!?]\s/g;
+  let cut = -1, m;
+  while ((m = re.exec(t))) {
+    if (m.index + 1 >= FIRST_SENTENCE_MIN) { cut = m.index + 1; break; }
+  }
+  if (cut < 0 || cut > FIRST_SENTENCE_MAX) return [t, ''];
+  return [t.slice(0, cut).trim(), t.slice(cut).trim()];
+}
+
+async function synthesise(text, session) {
+  const res = await fetch('/api/speak', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  });
+  if (session !== speechSession) return null;
+  if (res.status === HTTP_NO_CONTENT || !res.ok) throw new Error('status ' + res.status);
+  return playbackCtx.decodeAudioData(await res.arrayBuffer());
+}
+
+async function speakRemote(text, isFallback) {
+  unlockAudio();
+  const giveUp = (why) => {
+    if (isFallback) { finishedSpeaking(); return; }
+    report('speech-fallback', { reason: why });
+    speakLocally(text, true);
+  };
+  if (!playbackCtx) { giveUp('no playback context'); return; }
+
+  const session = speechSession;
+  const [first, rest] = splitFirstSentence(text);
+  const began = Date.now();
+
+  let firstBuf;
+  try {
+    firstBuf = await synthesise(first, session);
+  } catch (err) {
+    report('speech-fallback-failed', { error: String(err && err.message || err) });
+    giveUp('server speech unavailable');
+    return;
+  }
+  if (!firstBuf || session !== speechSession) return;
+
+  // Requested now, so it is made while the first sentence is being heard.
+  const restPromise = rest
+    ? synthesise(rest, session).catch(err => {
+        report('speech-rest-failed', { error: String(err && err.message || err) });
+        return null;
+      })
+    : Promise.resolve(null);
+
+  report('speech-first-word', { ms: Date.now() - began, chars: first.length });
+  listenWhileSpeaking();
+
+  const play = (buf, onDone) => {
+    const source = playbackCtx.createBufferSource();
+    source.buffer = buf;
+    source.connect(playbackCtx.destination);
+    liveSources.push(source);
+    source.onended = () => {
+      liveSources = liveSources.filter(x => x !== source);
+      if (session === speechSession) onDone();
+    };
+    source.start();
+    // onended is not guaranteed; the buffer's duration is a fact.
+    setTimeout(() => {
+      if (session === speechSession && liveSources.includes(source)) {
+        liveSources = liveSources.filter(x => x !== source);
+        onDone();
+      }
+    }, (buf.duration + END_WATCHDOG_MARGIN_SECONDS) * 1000);
+  };
+
+  play(firstBuf, async () => {
+    const restBuf = await restPromise;
+    if (session !== speechSession) return;
+    if (!restBuf) { finishedSpeaking(); return; }
+    play(restBuf, finishedSpeaking);
+  });
+}
+
+function stopSpeaking() {
+  speechSession++;
+  for (const source of liveSources) {
+    source.onended = null;             // stopping is not "finished speaking"
+    try { source.stop(); } catch (e) { /* already ended */ }
+  }
+  liveSources = [];
+  if (window.speechSynthesis) speechSynthesis.cancel();
+}
+
+function resumeListening() {
+  if (!conversing) { setState('idle'); return; }
+  // Never while the assistant is talking. A recording left over from before the
+  // turn can finish mid-answer, and its "I did not catch that" path called this
+  // - reopening the microphone and flipping the orb to Listening in the middle
+  // of the reply. The answer's own ending reopens it (ADR-0027).
+  if (speaking) return;
+  startRecording().catch(err => {
+    report('startRecording-failed', { error: String(err && err.message || err) });
+    console.error('could not reopen the microphone:', err);
+    conversing = false; setState('idle');
+  });
+}
+
+const stage = document.getElementById('stage');
+const orbWrap = document.querySelector('.orb-wrap');
+
+const ORB_LABEL = {
+  listening: 'Listening',
+  thinking: 'Thinking',
+  speaking: 'Speaking',
+  idle: '',
+};
+
+// One visible state at a time, so it is always clear whether the microphone is
+// open - the thing a user most needs to know in a hands-free conversation.
+function setState(state) {
+  stage.hidden = !conversing;
+  stage.dataset.state = state;
+  document.getElementById('orb-state').textContent = ORB_LABEL[state] || '';
+  if (!conversing) orbWrap.style.setProperty('--amp', 0);
+  mic.classList.toggle('on', state === 'listening');
+  mic.textContent = state === 'listening' ? '\u23F9'
+    : conversing ? '\uD83D\uDD34' : '\uD83C\uDFA4';
+  mic.title = conversing ? 'End the conversation' : 'Start a spoken conversation';
+  // The stage is an opaque full-screen overlay, so the footer hint line is
+  // invisible for the whole conversation - which is where every explanation was
+  // being written. A rejected turn looked like nothing happening at all. While
+  // the orb is up, the reason goes here, the only text the user can see.
+  const orbHint = document.getElementById('orb-hint');
+  if (orbHint) {
+    orbHint.textContent = carriedHint ||
+      (state === 'listening' ? 'tap the circle when you have finished' : '');
+    orbHint.classList.toggle('notice', !!carriedHint);
+  }
+  const stateHint = {
+    listening: 'Listening \u2014 stop talking, or tap the circle, to send.',
+    thinking: '',
+    speaking: conversing ? 'Speaking \u2014 the mic reopens when it finishes.' : '',
+    idle: '',
+  }[state] || '';
+  hint(carriedHint ? carriedHint + '  ' + stateHint : stateHint);
+  carriedHint = '';
+}
+
+// Mirrors speech.spoken_summary on the server: drop tables, strip markdown,
+// stop on a sentence boundary that is not a decimal point.
+function speakable(answer, limit) {
+  limit = limit || 420;
+  const kept = String(answer || '').split('\n').filter(l => {
+    const t = l.trim();
+    return t && !t.startsWith('|') && !/^[-|:\s]+$/.test(t);
+  }).join(' ');
+  let text = kept.replace(/[#*`_]/g, '').replace(/\s+/g, ' ').trim();
+  if (text.length <= limit) return text;
+  const cut = text.slice(0, limit);
+  let stop = -1, m, re = /[.?!]\s/g;
+  while ((m = re.exec(cut))) stop = m.index + 1;
+  return (stop > limit / 2 ? cut.slice(0, stop) : cut).trim();
+}
+
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  mic.onclick = async () => {
+    if (conversing) { await endConversation(); return; }
+    try { conversing = true; await startRecording(); }
+    catch (e) {
+      // Surfaced in the page, not an alert: a dismissed dialog leaves the user
+      // with a button that silently does nothing.
+      conversing = false; recording = false;
+      await releaseMicrophone();
+      setState('idle');
+      console.error('microphone failed:', e);
+      const why = (e && e.name === 'NotAllowedError')
+        ? 'Microphone permission was denied. Allow it for this site in the '
+          + 'address bar, then click the microphone again.'
+        : 'Microphone unavailable: ' + ((e && e.message) || e);
+      const empty = document.getElementById('empty');
+      if (empty) empty.remove();
+      turn('bot', '<div class="err">' + esc(why) + '</div>');
+    }
+  };
+} else {
+  mic.disabled = true; mic.title = 'Microphone unsupported in this browser';
+}
+
+// ---------- wiring ----------
+// Tapping the orb submits what has been said so far. The detector is a
+// convenience, not the only way to be heard.
+document.getElementById('orb').onclick = () => { if (recording) stopRecording(); };
+// Ends the conversation whatever else is happening. It used to call
+// mic.click(), and sendVoice disables the mic button while a request is in
+// flight - so a slow or hung answer left no way out of the conversation at all.
+async function endConversation() {
+  conversing = false;
+  if (voiceRequest) { try { voiceRequest.abort(); } catch (e) { /* already done */ } }
+  stopSpeaking();
+  speaking = false;
+  if (recording) await stopRecording(true);
+  await releaseMicrophone();
+  recording = false;
+  send.disabled = false; mic.disabled = false;
+  setState('idle');
+}
+
+document.getElementById('orb-end').onclick = () => { endConversation(); };
+
+// A tab that is going away, or has gone to the background without a
+// conversation running, must not keep the microphone. Two copies of this page
+// open at once left one of them holding the device: the indicator stayed lit
+// after voice mode ended here, and the tab that reacquired the stream got
+// silence back - measured as peak 0.0000 on eight consecutive turns.
+// Announce which build is actually running, the moment the script evaluates.
+// Without this there is no way to tell a stale cached page from a broken one -
+// both look identical from the server: a page load and then nothing.
+const BUILD = 'voice-25-browser';
+report('loaded', { build: BUILD, ua: navigator.userAgent.slice(0, 60) });
+window.addEventListener('error', e => {
+  report('js-error', { message: String(e.message), line: e.lineno });
+});
+
+window.addEventListener('pagehide', () => { releaseMicrophone(); });
+
+// Browsers suspend an AudioContext in a background tab, and a suspended context
+// delivers no frames at all: the conversation stalls silently, with nothing in
+// any log because the handler is simply never called. Coming back resumes it.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !conversing) return;
+  if (audioCtx && audioCtx.state === 'suspended') {
+    await audioCtx.resume();
+  }
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && !conversing) releaseMicrophone();
+});
+
+document.getElementById('theme-toggle').onclick = () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const sysDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-theme',
+    cur ? (cur === 'dark' ? 'light' : 'dark') : (sysDark ? 'light' : 'dark'));
+};
+send.onclick = () => ask(input.value);
+input.onkeydown = e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(input.value); }
+};
+input.oninput = () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 150) + 'px';
+};
+document.getElementById('reset').onclick = async () => {
+  // Starting over ends the spoken conversation too. Without this the orb stayed
+  // up and the microphone stayed open against a session that no longer exists.
+  if (conversing) {
+    conversing = false;
+    stopSpeaking();
+    speaking = false;
+    if (recording) await stopRecording(true);
+    await releaseMicrophone();
+    recording = false;
+    setState('idle');
+  }
+  if (sessionId) await fetch('/api/reset', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: '', session_id: sessionId }),
+  });
+  sessionId = null; wrap.innerHTML = ''; showEmpty();
+};
+
+function showEmpty() {
+  const div = document.createElement('div');
+  div.className = 'empty'; div.id = 'empty';
+  div.innerHTML =
+    '<div class="wordmark">AI<span class="dot">.</span>I</div>' +
+    '<div class="wordmark-sub">Airport Investment Intelligence</div>' +
+    '<h2>Where is renovation most likely to pay off?</h2>' +
+    '<p>US airports ranked by <strong>suppressed demand</strong> — traffic that exists ' +
+    'today but cannot be served because the facility is too small — measured from ' +
+    'federal traffic, schedule and delay data, then adjusted for growth.</p>' +
+    '<div class="samples">' + SAMPLES.map((s, i) =>
+      '<button class="sample" data-i="' + i + '"><span>' + s[0] + '</span>' + esc(s[1]) + '</button>'
+    ).join('') + '</div>';
+  wrap.appendChild(div);
+  div.querySelectorAll('.sample').forEach(b => { b.onclick = () => ask(SAMPLES[+b.dataset.i][1]); });
+}
+
+
+showEmpty();
+input.focus();
+</script>
+</body>
+</html>

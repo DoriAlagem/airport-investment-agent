@@ -1,0 +1,4 @@
+# test-time only: the suite needs no API keys and no network
+-r requirements.txt
+pytest>=8.0
+duckdb>=1.0
