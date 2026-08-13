@@ -888,7 +888,12 @@ const BARGE_OVER_SELF = 1.8;
 // leakage and the bar would climb out of reach for the rest of that reply.
 // Capped so interrupting always stays possible: a normal voice peaks far above
 // this, and the assistant through a laptop speaker sits below it.
-const BARGE_SELF_CEILING = 0.06;
+// Measured from a deployed session: the assistant leaks in at 0.08-0.12 through
+// laptop speakers, while the speaker's own voice arrives at 0.35. A ceiling of
+// 0.06 put the bar at 0.108 - under her louder passages, so she still cut
+// herself off. At 0.12 the bar lands at 0.216: above everything she produces,
+// and well under a real voice.
+const BARGE_SELF_CEILING = 0.12;
 let selfLeak = 0, spokenFrames = 0;
 
 // One definition, so the detector and the diagnostics measuring it cannot drift.
@@ -1375,7 +1380,7 @@ function finishedSpeaking() {
     resetCapture();
     setState('listening');
   } else {
-    resumeListening();
+    resumeListeningAfterSpeaking();
   }
 }
 
@@ -1552,6 +1557,16 @@ function stopSpeaking() {
   if (window.speechSynthesis) speechSynthesis.cancel();
 }
 
+// speechSynthesis fires onend before the audio has fully left the speakers, so
+// reopening immediately catches the tail of the assistant's own voice. Measured
+// live: recordings at peak 0.08-0.12 against a real voice at 0.35, transcribed
+// as "" and as gibberish that then reached the agent as a turn.
+const RESUME_HANGOVER_MS = 600;
+
+function resumeListeningAfterSpeaking() {
+  setTimeout(resumeListening, RESUME_HANGOVER_MS);
+}
+
 function resumeListening() {
   if (!conversing) { setState('idle'); return; }
   // Never while the assistant is talking. A recording left over from before the
@@ -1676,7 +1691,7 @@ document.getElementById('orb-end').onclick = () => { endConversation(); };
 // Announce which build is actually running, the moment the script evaluates.
 // Without this there is no way to tell a stale cached page from a broken one -
 // both look identical from the server: a page load and then nothing.
-const BUILD = 'voice-28-browser';
+const BUILD = 'voice-30-browser';
 report('loaded', { build: BUILD, ua: navigator.userAgent.slice(0, 60) });
 window.addEventListener('error', e => {
   report('js-error', { message: String(e.message), line: e.lineno });
