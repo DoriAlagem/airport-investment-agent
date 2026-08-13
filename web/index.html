@@ -883,7 +883,11 @@ const BARGE_FRAMES = 6;
 // The reply's opening frames are the assistant alone, so they measure how much
 // of her own voice reaches the microphone. Interrupting must clearly beat that.
 const BARGE_CALIBRATION_FRAMES = 10;   // ~0.85s at 4096 samples / 48kHz
-const BARGE_OVER_SELF = 1.8;
+// 1.8 put the bar above a real interrupting voice, which arrives quieter than
+// a normal turn because it competes with the speakers. 1.5 keeps clear of the
+// measured leakage while giving voice barge-in a chance; the orb tap is the
+// guarantee when it does not fire.
+const BARGE_OVER_SELF = 1.5;
 // If the user talks THROUGH the calibration window, their voice is measured as
 // leakage and the bar would climb out of reach for the rest of that reply.
 // Capped so interrupting always stays possible: a normal voice peaks far above
@@ -1609,7 +1613,8 @@ function setState(state) {
   const orbHint = document.getElementById('orb-hint');
   if (orbHint) {
     orbHint.textContent = carriedHint ||
-      (state === 'listening' ? 'tap the circle when you have finished' : '');
+      (state === 'listening' ? 'tap the circle when you have finished'
+       : state === 'speaking' ? 'tap the circle to interrupt' : '');
     orbHint.classList.toggle('notice', !!carriedHint);
   }
   const stateHint = {
@@ -1665,7 +1670,19 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
 // ---------- wiring ----------
 // Tapping the orb submits what has been said so far. The detector is a
 // convenience, not the only way to be heard.
-document.getElementById('orb').onclick = () => { if (recording) stopRecording(); };
+// Tapping the orb is the interrupt that cannot fail. Voice barge-in depends on
+// a threshold sitting between the assistant's own leakage (0.08-0.12 through
+// laptop speakers) and a real voice, and that gap is narrow enough that any
+// setting is wrong on some machine. A tap needs no threshold at all.
+document.getElementById('orb').onclick = () => {
+  if (speaking) {
+    stopSpeaking();
+    speaking = false;
+    resumeListening();
+    return;
+  }
+  if (recording) stopRecording();
+};
 // Ends the conversation whatever else is happening. It used to call
 // mic.click(), and sendVoice disables the mic button while a request is in
 // flight - so a slow or hung answer left no way out of the conversation at all.
@@ -1691,7 +1708,7 @@ document.getElementById('orb-end').onclick = () => { endConversation(); };
 // Announce which build is actually running, the moment the script evaluates.
 // Without this there is no way to tell a stale cached page from a broken one -
 // both look identical from the server: a page load and then nothing.
-const BUILD = 'voice-30-browser';
+const BUILD = 'voice-31-browser';
 report('loaded', { build: BUILD, ua: navigator.userAgent.slice(0, 60) });
 window.addEventListener('error', e => {
   report('js-error', { message: String(e.message), line: e.lineno });
