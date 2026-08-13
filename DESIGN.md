@@ -56,6 +56,9 @@ BTS T-100 · BTS On-Time · OurAirports        public datasets, downloaded once
    chat  ·  voice (bonus)
 ```
 
+A fuller version of this diagram, with the voice shell and the checks that
+keep it honest, is in [docs/architecture.md](docs/architecture.md).
+
 A **batch snapshot**, not live API calls per question ([ADR-0005](docs/adr/0005-batch-snapshot-architecture.md)).
 Three reasons: an analyst asking "rank New England" needs all of them scored,
 not one; percentiles are only meaningful against the whole cohort; and an

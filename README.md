@@ -92,7 +92,9 @@ Newark and LaGuardia coming out on top is the strongest external check
 available — nothing was tuned to produce it.
 
 The full reasoning, including the approaches that were rejected, is in
-**[DESIGN.md](DESIGN.md)** and the 28 ADRs in [docs/adr/](docs/adr/).
+**[DESIGN.md](DESIGN.md)**, a system diagram in
+[docs/architecture.md](docs/architecture.md), and the 28 ADRs in
+[docs/adr/](docs/adr/).
 
 ---
 
