@@ -737,6 +737,22 @@ function turn(role, html) {
   return div;
 }
 
+// The free-tier host spins the server down after inactivity: a request that
+// lands on a sleeping instance gets a plain-text "Not Found" from the edge,
+// not the app, and `.json()` on that throws an opaque SyntaxError. Reading
+// the body as text first lets a cold instance say something a person can
+// act on instead of a raw parser exception.
+async function parseJsonResponse(res) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(res.ok
+      ? 'Server returned an unexpected response.'
+      : 'Server is waking up from idle — wait a few seconds and try again.');
+  }
+}
+
 async function ask(text) {
   if (!text.trim() || send.disabled) return;
   const empty = document.getElementById('empty');
@@ -750,7 +766,7 @@ async function ask(text) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: text, session_id: sessionId }),
     });
-    const data = await res.json();
+    const data = await parseJsonResponse(res);
     sessionId = data.session_id;
     const bubble = pending.querySelector('.bubble');
     if (data.error) {
@@ -1071,7 +1087,7 @@ async function sendVoice(blob) {
   const stopWorking = working(pending.querySelector('.bubble'), 'Listening back\u2026');
   try {
     voiceRequest = new AbortController();
-    const data = await (await fetch('/api/voice', {
+    const voiceRes = await fetch('/api/voice', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       signal: voiceRequest.signal,
       // Speech is a separate request, so the written answer appears the moment
@@ -1080,7 +1096,8 @@ async function sendVoice(blob) {
         audio_base64: await blobToBase64(blob), mime_type: 'audio/wav',
         session_id: sessionId,
       }),
-    })).json();
+    });
+    const data = await parseJsonResponse(voiceRes);
 
     if (data.session_id) sessionId = data.session_id;
     const bubble = pending.querySelector('.bubble');
