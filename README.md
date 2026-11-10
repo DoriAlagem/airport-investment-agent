@@ -2,6 +2,8 @@
 
 [![tests](https://github.com/DoriAlagem/airport-investment-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/DoriAlagem/airport-investment-agent/actions/workflows/tests.yml)
 
+**Live demo: https://airport-investment-agent-kxld.onrender.com/** — on Render's free tier, so the first request after a quiet spell takes about a minute while the server wakes.
+
 An agent for analysts at a firm investing in US airport modernisation. It ranks
 airports by **suppressed demand** — traffic that exists today but cannot be
 served because the facility is too small — and says where a terminal would
