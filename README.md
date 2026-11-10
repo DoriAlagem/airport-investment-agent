@@ -162,14 +162,25 @@ src/airport_intel/
   speech.py         transcription in, synthesis out
   store.py          SQLite access; scores computed once at load
   geography.py      "New England", "the LA airports" → airport codes
+  config.py         paths, hub tiers, thresholds shared across modules
   web.py            FastAPI
   ingest/           downloaders (the BTS form-scrape lives here)
   etl/              t100, ontime, runways, airports, metrics, build
 web/index.html      the entire front end — one file, no build step
-scripts/evaluate.py answer-quality harness
+data/airports.db    the built snapshot the agent answers from
+tests/              pytest suite — no API keys, no network
+scripts/evaluate.py answer-quality harness, live API
 DESIGN.md           scoring methodology, tradeoffs, where AI is used
+docs/architecture.md system diagram
 docs/adr/           29 architecture decision records
+docs/further-work.md what would come next, and why
+.github/workflows/  CI: the test suite on Python 3.9 and 3.11
+render.yaml         Render blueprint for the live demo
 ```
+
+Three requirements files, so each context installs only what it runs:
+`requirements.txt` for the server, `-dev` adds pytest and DuckDB for the
+tests, `-build` adds DuckDB for rebuilding the snapshot.
 
 ---
 

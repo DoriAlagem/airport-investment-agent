@@ -59,12 +59,6 @@ class Store:
     def score(self, code: str) -> Optional[Score]:
         return self.scores.get(code.upper())
 
-    def all_codes(self) -> List[str]:
-        return list(self.metrics)
-
-    def scored_codes(self) -> List[str]:
-        return [c for c, s in self.scores.items() if s.final is not None]
-
     def by_region(self, regions: List[str]) -> List[str]:
         want = {r.upper() for r in regions}
         return [c for c, m in self.metrics.items()

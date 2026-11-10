@@ -107,7 +107,7 @@ The logic that prepares an answer to be read aloud — strip markdown, drop
 tables, cut at ~420 characters on a sentence boundary that is not a decimal
 point — exists **twice**:
 
-- `src/airport_intel/speech.py` → `spoken_summary()`, used by `/api/speak/stream`
+- `src/airport_intel/speech.py` → `spoken_summary()`, used by `/api/speak`
 - `web/index.html` → `speakable()`, used by the browser voice
 
 They agree today. Nothing enforces that: no test compares them and no build
@@ -116,16 +116,15 @@ by hand in both, from memory.
 
 **Three ways out, undecided:**
 
-1. **Delete the Python copy.** Speech output moved to the browser (ADR-0016) and
-   `/api/speak` is no longer called by the interface. Least code, and the
-   duplication disappears — but it also discards a working server-side path that
-   a paid TTS tier would want back.
+1. **Delete the Python copy.** Speech output moved to the browser (ADR-0028),
+   and `/api/speak` survives only as the fallback for when the browser refuses
+   to speak (Safari, outside a click). Least code, and the duplication
+   disappears — but it also discards that fallback.
 2. **Have the browser call the server** to trim. One implementation, at the cost
    of a network round-trip for string manipulation.
 3. **Keep both, add a conformance test** that runs the same inputs through each
    and asserts identical output. Cheapest to do, does not reduce the code.
 
-Option 1 is the honest default — the duplication exists only because speech
-moved to the browser and the server path was left behind — but it depends on
-whether the API voice is expected to return.
+Both copies are live, so option 1 costs the Safari fallback. Option 3 is the
+cheap way to make the agreement enforced rather than remembered.
 

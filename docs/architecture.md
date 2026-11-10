@@ -32,7 +32,7 @@ flowchart TB
   STORE --> SCORE
   SCORE --> CONSTRAINT
 
-  TOOLS["tools.py - six tools<br/>resolve, score, rank, compare,<br/>route_profile, current_conditions<br/>the only way the model sees data"]
+  TOOLS["toolbox.py + tools.py - six tools<br/>resolve, score, rank, compare,<br/>route_profile, current_conditions<br/>the only way the model sees data"]
   AGENT["agent.py<br/>tool-calling loop, max 6 rounds<br/>provider-neutral turns<br/>history trimmed at a real question"]
   GEMINI{{"Gemini 3.5-flash-lite<br/>picks tools, writes prose<br/>NEVER produces a number"}}
 

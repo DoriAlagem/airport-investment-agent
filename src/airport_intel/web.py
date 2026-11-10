@@ -112,24 +112,6 @@ class ChatResponse(BaseModel):
     error: Optional[str] = None
 
 
-@app.get("/api/meta")
-def meta() -> Dict:
-    """Data windows and coverage, shown permanently in the UI.
-
-    A snapshot that does not announce its own age is the failure this whole
-    design guards against (ADR-0005).
-    """
-    s = store()
-    scored = s.scored_codes()
-    return {
-        "ontime_window": s.data_window("ontime"),
-        "t100_window": s.data_window("t100"),
-        "airports_scored": len(scored),
-        "speech_provider": speech.speech_provider(),
-        "airports_total": len(s.all_codes()),
-    }
-
-
 @app.post("/api/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:
     session_id = request.session_id or uuid.uuid4().hex
