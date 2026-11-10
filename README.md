@@ -19,6 +19,11 @@ Ask it things like:
 Follow-ups work: *"What about Providence?"* → *"Is that one runway-limited or
 terminal-limited?"*
 
+*Built as a take-home assignment for an AI engineering role and extended since.
+The design records in [docs/adr/](docs/adr/) refer to "the assignment" — the
+brief the requirements came from — and the four questions above are its sample
+questions.*
+
 **Every number in an answer comes from a deterministic calculation, never from
 the model.** The model chooses which questions to ask of the data and writes the
 prose; the arithmetic lives in `scoring.py` and is covered by tests.
@@ -191,3 +196,9 @@ The agent states its own limits in its answers, and they are argued in full in
 spilled-demand model, cargo invisible to hourly metrics, 63 of the 396 scored
 airports missing a component (52 of them scored on one), and place names matched
 in English.
+
+---
+
+## License
+
+[MIT](LICENSE)

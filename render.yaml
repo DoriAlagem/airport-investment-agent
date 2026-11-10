@@ -1,7 +1,7 @@
 services:
   - type: web
     name: airport-investment-agent
-    env: python
+    runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: PYTHONPATH=src uvicorn airport_intel.web:app --host 0.0.0.0 --port $PORT

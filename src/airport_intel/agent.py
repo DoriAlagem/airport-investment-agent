@@ -4,7 +4,7 @@ The model chooses tools and writes prose. Everything numeric happens in
 tools.py against the snapshot, so the same question yields the same figures
 regardless of model or provider (ADR-0007).
 
-A router was rejected because the assignment requires follow-up questions, and
+A router was rejected because the agent must handle follow-up questions, and
 "and what about the second one?" has no intent class - a tool loop handles it
 natively because the history is already in context.
 """
