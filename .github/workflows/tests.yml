@@ -10,15 +10,16 @@ permissions:
 
 jobs:
   pytest:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which has no Python 3.9 build.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         # The oldest version the README promises, and the one Render runs.
         python-version: ["3.9", "3.11"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
