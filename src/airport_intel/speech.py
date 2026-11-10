@@ -155,13 +155,6 @@ def _openai_key() -> Optional[str]:
     return load_api_key(env_var="OPENAI_API_KEY")
 
 
-def speech_provider() -> str:
-    """Which engine will speak, so the interface can decide whether to ask."""
-    if _openai_key():
-        return "openai"
-    return "browser"
-
-
 def synthesize_openai(text: str, key: str,
                       timeout: int = SYNTHESIS_TIMEOUT_SECONDS) -> bytes:
     """The whole reply as one WAV, in one request.

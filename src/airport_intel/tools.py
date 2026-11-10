@@ -149,7 +149,6 @@ def resolve_airports(store: Store, query: str) -> Dict:
     upper = raw.upper()
 
     if store.get(upper):
-        row = store.get(upper)
         result = {"query": raw, "match_type": "airport_code",
                   "airports": [_brief(store, upper)]}
         metro = _metro_containing(upper)

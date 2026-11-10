@@ -462,7 +462,6 @@ const SAMPLES = [
 const isRtl = t => /[\u0590-\u05FF]/.test(String(t || ''));
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-const pct = v => v == null ? '—' : v.toFixed(0);
 const ordinal = v => {
   if (v == null) return '—';
   const n = Math.round(v), t = n % 100;

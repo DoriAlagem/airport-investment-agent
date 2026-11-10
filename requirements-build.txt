@@ -1,4 +1,3 @@
 # build-time only (see ADR-0011)
 -r requirements.txt
 duckdb>=1.0
-pandas>=2.0
