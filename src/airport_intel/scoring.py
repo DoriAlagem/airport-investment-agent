@@ -2,8 +2,8 @@
 
 Pure functions over plain dictionaries: no database, no network, no model. Given
 the same metrics this module returns the same numbers every time, which is what
-makes the assignment's "deterministic scoring, not only LLM output" requirement
-true by construction rather than by assertion (ADR-0007).
+makes the "deterministic scoring, not only LLM output" requirement true by
+construction rather than by assertion (ADR-0007).
 
 The thesis (ADR-0001): rank airports by demand that exists today but cannot be
 served because the facility is too small, adjusted for whether that demand is

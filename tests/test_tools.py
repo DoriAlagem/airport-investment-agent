@@ -1,7 +1,7 @@
 """Tests for the six tools, against the real snapshot.
 
 These run over the committed database rather than fixtures: the tools exist to
-answer the assignment's questions from real data, and a fixture would test the
+answer real analysts' questions from real data, and a fixture would test the
 plumbing while leaving the actual answers unverified.
 
 Skipped rather than failed when the snapshot is absent, so a fresh clone that
