@@ -1,5 +1,7 @@
 # AI.I — Airport Investment Intelligence
 
+[![tests](https://github.com/DoriAlagem/airport-investment-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/DoriAlagem/airport-investment-agent/actions/workflows/tests.yml)
+
 An agent for analysts at a firm investing in US airport modernisation. It ranks
 airports by **suppressed demand** — traffic that exists today but cannot be
 served because the facility is too small — and says where a terminal would
