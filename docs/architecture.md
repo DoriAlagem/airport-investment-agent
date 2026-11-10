@@ -33,7 +33,7 @@ flowchart TB
   SCORE --> CONSTRAINT
 
   TOOLS["tools.py - six tools<br/>resolve, score, rank, compare,<br/>route_profile, current_conditions<br/>the only way the model sees data"]
-  AGENT["agent.py<br/>tool-calling loop, max 6 rounds<br/>history trimmed at a real question"]
+  AGENT["agent.py<br/>tool-calling loop, max 6 rounds<br/>provider-neutral turns<br/>history trimmed at a real question"]
   GEMINI{{"Gemini 3.5-flash-lite<br/>picks tools, writes prose<br/>NEVER produces a number"}}
 
   SCORE --> TOOLS
@@ -60,7 +60,7 @@ flowchart TB
   UI --> SPEAK
 
   EVAL["scripts/evaluate.py<br/>traces EVERY number in the prose<br/>back to a tool result"]
-  TESTS["88 tests<br/>14 of 14 mutations caught"]
+  TESTS["102 tests<br/>14 of 14 mutations caught"]
 
   AGENT -.-> EVAL
   SCORE -.-> TESTS

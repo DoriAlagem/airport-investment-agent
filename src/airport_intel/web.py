@@ -10,6 +10,7 @@ loading it per session would re-score every airport on every page open.
 """
 import base64
 import json
+import logging
 import uuid
 from collections import OrderedDict
 from pathlib import Path
@@ -29,6 +30,12 @@ STATIC_DIR = Path(__file__).resolve().parents[2] / "web"
 
 # 204: nothing to play, and not an error - the page falls back to its own voice.
 HTTP_NO_CONTENT = 204
+
+# basicConfig does nothing if the host (uvicorn, a test runner) has already
+# configured logging, so this only fills the gap when nothing else has.
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger(__name__)
 
 app = FastAPI(title="Airport Investment Intelligence Agent")
 
@@ -153,7 +160,7 @@ def diag(payload: Dict) -> Dict:
     endpoint puts the real numbers in the server log, where they can be read
     without asking the user to open a console.
     """
-    print("MIC %s" % json.dumps(payload, ensure_ascii=False), flush=True)
+    log.info("MIC %s", json.dumps(payload, ensure_ascii=False))
     return {"ok": True}
 
 
@@ -186,11 +193,11 @@ def voice(request: VoiceRequest) -> Dict:
     # rather than writing a red box into the transcript under the assistant's
     # name, which is what it used to do (ADR-0026).
     transcript = (heard.get("text") or "").strip()
-    print("HEARD %r (%s)" % (transcript, heard.get("language")), flush=True)
+    log.info("HEARD %r (%s)", transcript, heard.get("language"))
     if not transcript:
         return {"unheard": "I did not catch that — try speaking a little closer."}
     if not speech.is_substantive(transcript, spoken_vocabulary()):
-        print("REJECTED as a fragment: %r" % transcript, flush=True)
+        log.info("REJECTED as a fragment: %r", transcript)
         return {"unheard": "I heard only “%s” — say the whole question."
                            % transcript}
 
@@ -237,7 +244,7 @@ def speak(request: SpeakRequest):
     try:
         audio = speech.synthesize(text)
     except LLMError as exc:
-        print("SPEAK failed: %s" % exc, flush=True)
+        log.warning("SPEAK failed: %s", exc)
         return Response(status_code=HTTP_NO_CONTENT)
     if audio is None:
         return Response(status_code=HTTP_NO_CONTENT)

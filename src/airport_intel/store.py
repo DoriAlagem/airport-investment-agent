@@ -5,6 +5,7 @@ memory. The database holds facts; scores are computed here so weights stay
 tunable without a rebuild (ADR-0011).
 """
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -20,6 +21,10 @@ class Store:
             )
         self._con = sqlite3.connect(str(db_path), check_same_thread=False)
         self._con.row_factory = sqlite3.Row
+        # One connection is shared by every request thread and, within a
+        # request, by tools running in parallel. sqlite3 does not make a shared
+        # connection safe on its own, so queries after load take this lock.
+        self._lock = threading.Lock()
 
         self.metrics: Dict[str, Dict] = {
             r["code"]: dict(r)
@@ -85,8 +90,9 @@ class Store:
         return sorted(hits, key=lambda m: -(m.get("enplanements") or 0))
 
     def routes(self, code: str) -> List[Dict]:
-        rows = self._con.execute(
-            "SELECT * FROM t100_routes WHERE airport = ? ORDER BY departures DESC",
-            (code.upper(),),
-        )
+        with self._lock:
+            rows = self._con.execute(
+                "SELECT * FROM t100_routes WHERE airport = ? ORDER BY departures DESC",
+                (code.upper(),),
+            ).fetchall()
         return [dict(r) for r in rows]

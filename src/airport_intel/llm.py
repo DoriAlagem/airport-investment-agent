@@ -5,17 +5,25 @@ and a framework would be larger than what it wraps while hiding exactly which
 tool fired with which arguments - the one thing worth being able to assert
 (ADR-0008).
 
-Swapping provider means replacing this file. Because the model performs no
-arithmetic, that cannot change any number the system produces - only wording.
+The agent speaks in the neutral turns of messages.py; this file alone knows
+Gemini's wire format. Swapping provider means writing another class with the
+same `generate` - nothing in the loop changes (ADR-0029). Because the model
+performs no arithmetic, that cannot change any number the system produces -
+only wording.
 """
 import json
+import logging
 import os
 import re
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Protocol, Sequence
 
 import requests
+
+from .messages import ModelTurn, ToolCall, ToolResultsTurn, Turn, UserTurn
+
+log = logging.getLogger(__name__)
 
 # A lighter model is the default because the free tier is rate-limited per
 # minute, and a single question costs several requests - one per tool round.
@@ -82,6 +90,71 @@ class LLMError(RuntimeError):
     pass
 
 
+class LLM(Protocol):
+    """What the agent needs from a model, whoever provides it."""
+
+    active_model: Optional[str]
+
+    def generate(self, turns: Sequence[Turn], system: str,
+                 tools: Optional[List[Dict]] = None) -> ModelTurn:
+        ...
+
+
+# --- Gemini wire format ------------------------------------------------------
+#
+# Gemini has no role for tool results: they travel as "user" turns whose parts
+# are functionResponse objects, and each must immediately follow the model turn
+# that asked for it. Keeping that rule here is what lets the agent treat a tool
+# result as its own kind of turn.
+
+def to_gemini_contents(turns: Sequence[Turn]) -> List[Dict[str, Any]]:
+    contents = []
+    for turn in turns:
+        if isinstance(turn, UserTurn):
+            contents.append({"role": "user", "parts": [{"text": turn.text}]})
+        elif isinstance(turn, ModelTurn):
+            # Echoed verbatim when we have it: the parts carry thought
+            # signatures, and rebuilding them would drop those.
+            parts = turn.raw if turn.raw is not None else _model_parts(turn)
+            contents.append({"role": "model", "parts": parts})
+        elif isinstance(turn, ToolResultsTurn):
+            contents.append({"role": "user", "parts": [
+                {"functionResponse": _strip_none({
+                    "id": r.call.id, "name": r.call.name,
+                    "response": {"result": r.result}})}
+                for r in turn.results]})
+        else:
+            raise TypeError("Not a conversation turn: %r" % (turn,))
+    return contents
+
+
+def from_gemini_content(content: Dict[str, Any]) -> ModelTurn:
+    parts = content.get("parts") or []
+    text, calls = [], []
+    for part in parts:
+        if "functionCall" in part:
+            fc = part["functionCall"]
+            calls.append(ToolCall(name=fc.get("name", ""),
+                                  args=fc.get("args") or {}, id=fc.get("id")))
+        elif part.get("text"):
+            text.append(part["text"])
+    return ModelTurn(text="".join(text), tool_calls=calls, raw=parts)
+
+
+def _model_parts(turn: ModelTurn) -> List[Dict[str, Any]]:
+    parts: List[Dict[str, Any]] = []
+    if turn.text:
+        parts.append({"text": turn.text})
+    for c in turn.tool_calls:
+        parts.append({"functionCall": _strip_none(
+            {"id": c.id, "name": c.name, "args": c.args})})
+    return parts
+
+
+def _strip_none(d: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in d.items() if v is not None}
+
+
 class Gemini:
     def __init__(self, api_key: Optional[str] = None, model: str = DEFAULT_MODEL):
         self.api_key = api_key or load_api_key()
@@ -92,15 +165,21 @@ class Gemini:
         self.model = model
         self.active_model = model
 
-    def generate(self, contents: List[Dict], system: str,
+    def generate(self, turns: Sequence[Turn], system: str,
                  tools: Optional[List[Dict]] = None,
-                 timeout: int = REQUEST_TIMEOUT_SECONDS) -> Dict:
-        """One turn. Returns the raw candidate content so the caller can echo it
-        back verbatim in history.
+                 timeout: int = REQUEST_TIMEOUT_SECONDS) -> ModelTurn:
+        """One model turn, from and to the neutral conversation types.
 
-        Echoing the model's own parts unchanged matters: Gemini attaches a
-        thought signature to them, and stripping it degrades multi-step tool use.
+        The returned turn keeps Gemini's own parts in `raw`, so the next request
+        echoes them back unchanged: Gemini attaches a thought signature to
+        them, and stripping it degrades multi-step tool use.
         """
+        return from_gemini_content(
+            self._request(to_gemini_contents(turns), system, tools, timeout))
+
+    def _request(self, contents: List[Dict], system: str,
+                 tools: Optional[List[Dict]], timeout: int) -> Dict:
+        """POST with retries and model fallback; returns the candidate content."""
         payload: Dict = {
             "contents": contents,
             "systemInstruction": {"parts": [{"text": system}]},
@@ -141,6 +220,7 @@ class Gemini:
                 last_error = "%s: %s" % (status, error.get("message", "")[:ERROR_EXCERPT_CHARS])
                 if status not in RETRYABLE:
                     raise LLMError(last_error)
+                log.warning("%s on %s (attempt %d)", status, model, attempt + 1)
 
                 # Quota is per minute and the API states how long to wait;
                 # overload is usually shorter-lived, so back off less before
@@ -164,14 +244,3 @@ def _retry_delay(message: str) -> float:
     if match:
         return float(match.group(1)) + RETRY_MARGIN_SECONDS
     return DEFAULT_BACKOFF
-
-
-def split_parts(content: Dict):
-    """Separate a model turn into spoken text and requested tool calls."""
-    text, calls = [], []
-    for part in content.get("parts", []) or []:
-        if "functionCall" in part:
-            calls.append(part["functionCall"])
-        elif part.get("text"):
-            text.append(part["text"])
-    return "".join(text), calls

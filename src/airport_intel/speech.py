@@ -12,6 +12,7 @@ does not serve TTS.
 """
 import base64
 import io
+import logging
 import re
 import struct
 import time
@@ -20,6 +21,8 @@ from typing import Dict, Optional
 import requests
 
 from .llm import ENDPOINT, LLMError, load_api_key
+
+log = logging.getLogger(__name__)
 
 TRANSCRIBE_MODEL = "gemini-3.5-flash-lite"
 
@@ -220,10 +223,10 @@ def transcribe(audio_bytes: bytes, mime_type: str = "audio/wav",
                 if "429" in str(exc) and attempt < GROQ_RETRIES - 1:
                     time.sleep(GROQ_RETRY_SECONDS)
                     continue
-                print("groq transcription failed, falling back to gemini: %s" % exc)
+                log.warning("groq transcription failed, falling back to gemini: %s", exc)
                 break
             except Exception as exc:
-                print("groq transcription failed, falling back to gemini: %s" % exc)
+                log.warning("groq transcription failed, falling back to gemini: %s", exc)
                 break
     return _transcribe_gemini(audio_bytes, mime_type, timeout)
 
