@@ -212,6 +212,11 @@ def test_duplicate_codes_appear_once(store):
 
 # --- conversation history (ADR-0007) ---------------------------------------
 
+from airport_intel.llm import to_gemini_contents
+from airport_intel.messages import (ModelTurn, ToolCall, ToolResult,
+                                    ToolResultsTurn, UserTurn)
+
+
 def _agent_with_history(entries):
     from airport_intel.agent import Agent
     a = Agent.__new__(Agent)          # no store or API key needed
@@ -221,14 +226,13 @@ def _agent_with_history(entries):
 
 
 def _exchange(question):
-    """One question that used a tool: ask, call, response, answer."""
+    """One question that used a tool: ask, call, result, answer."""
+    call = ToolCall("score_airport", {"code": "BOS"})
     return [
-        {"role": "user", "parts": [{"text": question}]},
-        {"role": "model", "parts": [{"functionCall": {"name": "score_airport",
-                                                      "args": {"code": "BOS"}}}]},
-        {"role": "user", "parts": [{"functionResponse": {"name": "score_airport",
-                                                         "response": {"result": {}}}}]},
-        {"role": "model", "parts": [{"text": "Boston Logan scores 79.6."}]},
+        UserTurn(question),
+        ModelTurn(tool_calls=[call]),
+        ToolResultsTurn([ToolResult(call, {})]),
+        ModelTurn("Boston Logan scores 79.6."),
     ]
 
 
@@ -239,22 +243,23 @@ def test_trimming_never_opens_on_a_tool_result():
     it did, on about the fourth question, because a function response is also
     role "user" and the old trim stopped at the first one it met.
     """
-    from airport_intel.agent import MAX_HISTORY_ENTRIES, _is_user_message
+    from airport_intel.agent import MAX_HISTORY_ENTRIES
     a = _agent_with_history([e for i in range(12) for e in _exchange("q%d" % i)])
     a._trim_history()
     assert len(a.history) <= MAX_HISTORY_ENTRIES
-    assert _is_user_message(a.history[0]), a.history[0]
-    assert "functionResponse" not in str(a.history[0])
+    assert isinstance(a.history[0], UserTurn), a.history[0]
+    assert "functionResponse" not in str(to_gemini_contents(a.history)[0])
 
 
 def test_every_tool_result_still_follows_its_call():
-    """The invariant Gemini actually enforces."""
+    """The invariant Gemini actually enforces, checked on the wire."""
     a = _agent_with_history([e for i in range(12) for e in _exchange("q%d" % i)])
     a._trim_history()
-    for i, entry in enumerate(a.history):
+    wire = to_gemini_contents(a.history)
+    for i, entry in enumerate(wire):
         if any("functionResponse" in p for p in entry["parts"]):
             assert i > 0
-            assert any("functionCall" in p for p in a.history[i - 1]["parts"])
+            assert any("functionCall" in p for p in wire[i - 1]["parts"])
 
 
 def test_a_short_conversation_is_left_alone():
@@ -266,15 +271,12 @@ def test_a_short_conversation_is_left_alone():
 
 def test_one_enormous_exchange_keeps_its_question():
     """A question needing many tools must not trim away the question itself."""
-    from airport_intel.agent import _is_user_message
-    long_exchange = [{"role": "user", "parts": [{"text": "a hard question"}]}]
+    long_exchange = [UserTurn("a hard question")]
     for _ in range(30):
-        long_exchange += [
-            {"role": "model", "parts": [{"functionCall": {"name": "t", "args": {}}}]},
-            {"role": "user", "parts": [{"functionResponse": {"name": "t",
-                                                             "response": {}}}]},
-        ]
+        call = ToolCall("t", {})
+        long_exchange += [ModelTurn(tool_calls=[call]),
+                          ToolResultsTurn([ToolResult(call, {})])]
     a = _agent_with_history(long_exchange)
     a._trim_history()
-    assert _is_user_message(a.history[0])
-    assert a.history[0]["parts"][0].get("text") == "a hard question"
+    assert isinstance(a.history[0], UserTurn)
+    assert a.history[0].text == "a hard question"

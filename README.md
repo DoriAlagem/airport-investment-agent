@@ -93,7 +93,7 @@ available — nothing was tuned to produce it.
 
 The full reasoning, including the approaches that were rejected, is in
 **[DESIGN.md](DESIGN.md)**, a system diagram in
-[docs/architecture.md](docs/architecture.md), and the 28 ADRs in
+[docs/architecture.md](docs/architecture.md), and the 29 ADRs in
 [docs/adr/](docs/adr/).
 
 ---
@@ -122,7 +122,7 @@ not ([ADR-0028](docs/adr/0028-speech-output-returns-to-the-browser-voice.md)).
 
 ```bash
 pip install -r requirements-dev.txt
-python3 -m pytest tests/ -q                    # 88 tests, no API keys, no network
+python3 -m pytest tests/ -q                    # 102 tests, no API keys, no network
 ```
 
 There is a second harness that checks the *answers* rather than the code:
@@ -145,9 +145,11 @@ tracing it does.
 src/airport_intel/
   scoring.py        the deterministic core — pure functions, no I/O
   tools.py          the six tools the model may call
-  agent.py          tool-calling loop
-  llm.py            Gemini adapter, retries, model fallback
-  prompts.py        system prompt and tool schemas
+  toolbox.py        tool registry: each schema beside its handler; parallel rounds
+  agent.py          tool-calling loop over provider-neutral turns
+  messages.py       those turns: user, model, tool results
+  llm.py            Gemini adapter: wire format, retries, model fallback
+  prompts.py        system prompt
   speech.py         transcription in, synthesis out
   store.py          SQLite access; scores computed once at load
   geography.py      "New England", "the LA airports" → airport codes
@@ -157,7 +159,7 @@ src/airport_intel/
 web/index.html      the entire front end — one file, no build step
 scripts/evaluate.py answer-quality harness
 DESIGN.md           scoring methodology, tradeoffs, where AI is used
-docs/adr/           28 architecture decision records
+docs/adr/           29 architecture decision records
 ```
 
 ---

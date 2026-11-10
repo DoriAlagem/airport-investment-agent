@@ -8,12 +8,16 @@ A router was rejected because the assignment requires follow-up questions, and
 "and what about the second one?" has no intent class - a tool loop handles it
 natively because the history is already in context.
 """
-from typing import Callable, Dict, List, Optional
+import logging
+from typing import Dict, List, Optional
 
-from . import tools as T
-from .llm import Gemini, split_parts
-from .prompts import SYSTEM_PROMPT, TOOL_SCHEMAS
+from .llm import LLM, Gemini
+from .messages import ModelTurn, ToolResult, ToolResultsTurn, Turn, UserTurn
+from .prompts import SYSTEM_PROMPT
 from .store import Store
+from .toolbox import Toolbox
+
+log = logging.getLogger(__name__)
 
 MAX_TOOL_ROUNDS = 6
 
@@ -32,51 +36,20 @@ MAX_HISTORY_ENTRIES = 16
 # which flipped the reply language mid-conversation for no visible reason.
 DECISIVE_ENGLISH_CHARS = 25
 
-
-class ToolCallRecord:
-    """What the model asked for and what it got back.
-
-    Kept so the interface can show its working: an agent that cites figures is
-    only trustworthy if you can see where they came from.
-    """
-
-    def __init__(self, name: str, args: Dict, result: Dict):
-        self.name = name
-        self.args = args
-        self.result = result
-
-    def as_dict(self) -> Dict:
-        return {"tool": self.name, "args": self.args, "result": self.result}
-
-
-
-def _is_user_message(entry: Dict) -> bool:
-    """A turn the person actually sent, not a tool result wearing the same role.
-
-    Gemini has no separate role for function responses; they are "user" turns
-    whose parts carry functionResponse instead of text.
-    """
-    if entry.get("role") != "user":
-        return False
-    return not any("functionResponse" in part for part in entry.get("parts", []))
+TOOL_LIMIT_ANSWER = ("I could not complete that within the tool-call limit. "
+                     "Try asking about one airport or region at a time.")
 
 
 class Agent:
-    def __init__(self, store: Optional[Store] = None, llm: Optional[Gemini] = None):
+    def __init__(self, store: Optional[Store] = None, llm: Optional[LLM] = None,
+                 toolbox: Optional[Toolbox] = None):
         self.store = store or Store()
         self.llm = llm or Gemini()
-        self.history: List[Dict] = []
+        self.toolbox = toolbox or Toolbox(self.store)
+        self.history: List[Turn] = []
         # The conversation's language, not the clip's. Set by the first turn and
         # kept until the speaker clearly changes language.
         self.language: Optional[str] = None
-        self._dispatch: Dict[str, Callable] = {
-            "resolve_airports": lambda a: T.resolve_airports(self.store, a["query"]),
-            "score_airport": lambda a: T.score_airport(self.store, a["code"]),
-            "rank_airports": lambda a: T.rank_airports(self.store, a["codes"]),
-            "compare_airports": lambda a: T.compare_airports(self.store, a["codes"]),
-            "route_profile": lambda a: T.route_profile(self.store, a["code"]),
-            "current_conditions": lambda a: T.current_conditions(self.store, a["code"]),
-        }
 
     def reset(self) -> None:
         self.history = []
@@ -100,20 +73,6 @@ class Agent:
             self.language = "en"
         return self.language
 
-    def _run_tool(self, name: str, args: Dict) -> Dict:
-        handler = self._dispatch.get(name)
-        if not handler:
-            return {"error": "unknown_tool", "message": "No tool named %s." % name}
-        try:
-            return handler(args or {})
-        except KeyError as exc:
-            return {"error": "bad_arguments",
-                    "message": "%s missing required argument %s." % (name, exc)}
-        except Exception as exc:
-            # Surfaced to the model rather than raised, so it can tell the user
-            # the data is unavailable instead of the request dying.
-            return {"error": "tool_failed", "message": "%s failed: %s" % (name, exc)}
-
     def _trim_history(self) -> None:
         """Keep the tail, starting at a real question.
 
@@ -123,17 +82,16 @@ class Agent:
             INVALID_ARGUMENT: Please ensure that function response turn comes
             immediately after a function call turn.
 
-        Advancing to the next entry with role "user" is not enough, because a
-        function RESPONSE is also role "user" - so the window could open on a
-        response whose call had just been trimmed away, and the conversation
-        died on about the fourth question. The window opens on a turn the user
-        actually typed or spoke.
+        On Gemini's wire a tool result is also role "user", which once let the
+        window open on a result whose call had been trimmed away - the
+        conversation died on about the fourth question. With tool results as
+        their own turn type the rule is simply: open on a UserTurn.
         """
         if len(self.history) <= MAX_HISTORY_ENTRIES:
             return
 
         start = len(self.history) - MAX_HISTORY_ENTRIES
-        while start < len(self.history) and not _is_user_message(self.history[start]):
+        while start < len(self.history) and not isinstance(self.history[start], UserTurn):
             start += 1
 
         if start >= len(self.history):
@@ -142,7 +100,7 @@ class Agent:
             # tokens, a broken one costs the answer.
             start = 0
             for i in range(len(self.history) - 1, -1, -1):
-                if _is_user_message(self.history[i]):
+                if isinstance(self.history[i], UserTurn):
                     start = i
                     break
 
@@ -160,34 +118,42 @@ class Agent:
         if reply_in in ("he", "en"):
             message = "%s\n\n[Reply in %s.]" % (
                 message, "Hebrew" if reply_in == "he" else "English")
-        self.history.append({"role": "user", "parts": [{"text": message}]})
-        calls_made: List[ToolCallRecord] = []
+        checkpoint = len(self.history)
+        self.history.append(UserTurn(message))
+        try:
+            return self._loop()
+        except Exception:
+            # A question the model never answered (quota, network) is not part
+            # of the conversation. Left in, it would be re-sent with the next
+            # question as if it were still pending.
+            del self.history[checkpoint:]
+            raise
+
+    def _loop(self) -> Dict:
+        """Reason, act, observe - until the model answers or the limit is hit."""
+        results: List[ToolResult] = []
 
         for _ in range(MAX_TOOL_ROUNDS):
-            content = self.llm.generate(self.history, SYSTEM_PROMPT, TOOL_SCHEMAS)
-            # Echoed back verbatim: the model's parts carry thought signatures
-            # that multi-step tool use depends on.
-            self.history.append({"role": "model",
-                                 "parts": content.get("parts", [])})
-            text, calls = split_parts(content)
+            turn: ModelTurn = self.llm.generate(
+                self.history, SYSTEM_PROMPT, self.toolbox.schemas())
+            self.history.append(turn)
 
-            if not calls:
-                return {"answer": text,
-                        "tool_calls": [c.as_dict() for c in calls_made]}
+            if not turn.tool_calls:
+                return self._reply(turn.text, results)
 
-            responses = []
-            for call in calls:
-                name = call.get("name")
-                args = call.get("args") or {}
-                result = self._run_tool(name, args)
-                calls_made.append(ToolCallRecord(name, args, result))
-                responses.append({
-                    "functionResponse": {"name": name, "response": {"result": result}}
-                })
-            self.history.append({"role": "user", "parts": responses})
+            round_results = self.toolbox.run_all(turn.tool_calls)
+            results.extend(round_results)
+            self.history.append(ToolResultsTurn(round_results))
 
-        return {
-            "answer": ("I could not complete that within the tool-call limit. "
-                       "Try asking about one airport or region at a time."),
-            "tool_calls": [c.as_dict() for c in calls_made],
-        }
+        log.warning("tool-call limit reached after %d calls", len(results))
+        return self._reply(TOOL_LIMIT_ANSWER, results)
+
+    @staticmethod
+    def _reply(answer: str, results: List[ToolResult]) -> Dict:
+        """The answer plus every tool call behind it.
+
+        The calls are returned so the interface can show its working: an agent
+        that cites figures is only trustworthy if you can see where they came
+        from.
+        """
+        return {"answer": answer, "tool_calls": [r.as_dict() for r in results]}

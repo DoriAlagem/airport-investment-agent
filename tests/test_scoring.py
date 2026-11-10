@@ -210,15 +210,16 @@ def test_history_is_bounded_and_never_starts_on_a_model_turn():
     """An unbounded history grows the request every turn; a window that opens
     on a model turn is rejected outright by the API."""
     from airport_intel.agent import Agent, MAX_HISTORY_ENTRIES
+    from airport_intel.messages import ModelTurn, UserTurn
 
     agent = Agent.__new__(Agent)          # no store or API key needed
     agent.history = []
     for i in range(MAX_HISTORY_ENTRIES * 2):
-        agent.history.append({"role": "user" if i % 2 == 0 else "model", "parts": []})
+        agent.history.append(UserTurn("q%d" % i) if i % 2 == 0 else ModelTurn("a"))
     agent._trim_history()
 
     assert len(agent.history) <= MAX_HISTORY_ENTRIES
-    assert agent.history[0]["role"] == "user"
+    assert isinstance(agent.history[0], UserTurn)
 
 
 def test_non_hub_airports_are_named_sensibly():
